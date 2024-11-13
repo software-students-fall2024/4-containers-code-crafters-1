@@ -4,12 +4,40 @@ from bson import ObjectId
 from datetime import datetime
 from flask import Flask
 from flask_login import FlaskLoginClient, login_user
-from app import User, app, search_exercise, get_exercise, get_todo, delete_todo, add_todo, get_exercise_in_todo, edit_exercise, get_instruction, search_exercise_rigid, get_matching_exercises_from_history, add_search_history, get_search_history
+from app import User, app, search_exercise, get_exercise, get_todo, delete_todo, add_todo, get_exercise_in_todo, edit_exercise, get_instruction, search_exercise_rigid, get_matching_exercises_from_history, add_search_history, get_search_history, upload_audio, edit
+from io import BytesIO
 
 @pytest.fixture
 def client():
     with app.test_client() as client:
         yield client
+
+# # Mock login_required decorator for testing
+# @pytest.fixture(autouse=True)
+# def mock_login_required():
+#     with patch('app.login_required', lambda x: x):
+#         yield
+
+### Not working ###
+def test_request_with_logged_in_user():
+    user = User(id = "507f1f77bcf86cd799439011", username='testuser', password='testpassword')
+    with app.test_client(user=user) as client:
+        client.get("/")
+
+### Test edit function ###
+@patch('app.get_exercise_in_todo')
+def test_edit_get_request(mock_get_exercise_in_todo, client):
+    mock_get_exercise_in_todo.return_value = {
+        'exercise_todo_id': '123',
+        'name': 'Test Exercise',
+        'reps': 10,
+        'weight': 50
+    }
+
+    response = client.get('/edit?exercise_todo_id=123')
+    assert response.status_code == 200
+    assert b'Test Exercise' in response.data
+    mock_get_exercise_in_todo.assert_called_once_with('123')
 
 ### Test search_exercise function ###
 @patch('app.exercises_collection')
