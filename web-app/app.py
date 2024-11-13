@@ -169,8 +169,7 @@ def edit_exercise(exercise_todo_id, working_time, weight, reps):
     else:
         # print(f"Exercise with To-Do ID {exercise_todo_id} not found.")
         return False
-
-
+        
 def add_search_history(content):
     search_entry = {
         "user_id": current_user.id,
@@ -187,8 +186,6 @@ def get_search_history():
 
     history = list(results)
     return history
-
-
 
 def get_exercise_in_todo(exercise_todo_id: int):
     todo_item = todo_collection.find_one({"user_id": current_user.id})
@@ -413,16 +410,6 @@ def instructions():
     exercise = get_exercise(exercise_id)
 
     return render_template('instructions.html', exercise=exercise)
-
-@app.route('/exercise_detail/<exercise_id>', methods=['GET'])
-def exercise_detail(exercise_id):
-    exercise = get_exercise(exercise_id)
-    
-    if exercise:
-        exercise['_id'] = str(exercise['_id'])
-        return render_template('exercise_detail.html', exercise=exercise)
-    else:
-        return jsonify({'message': 'Exercise not found'}), 404
 
 @app.route('/upload-audio', methods=['POST'])
 def upload_audio():
