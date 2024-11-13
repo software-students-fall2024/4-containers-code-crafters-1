@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from bson import ObjectId
-from app import search_exercise, get_exercise, get_todo, delete_todo, add_todo, get_exercise_in_todo, edit_exercise
+from app import search_exercise, get_exercise, get_todo, delete_todo, add_todo, get_exercise_in_todo, edit_exercise, get_instruction
 
 ### Test search_exercise function ###
 @patch('app.exercises_collection')
@@ -279,6 +279,66 @@ def test_get_exercise_in_todo_no_todo_item(mock_todo_collection, mock_current_us
 
     assert result is None
     mock_todo_collection.find_one.assert_called_once_with({"user_id": mock_current_user.id})
+
+### Test get_instruction function ###
+@patch('app.exercises_collection')
+def test_get_instruction_with_instruction(mock_exercises_collection):
+    random_exercise_id = ObjectId("507f1f77bcf86cd799439011")
+    mock_exercise = {
+        "_id": random_exercise_id,
+        "workout_name": "Push Up",
+        "instruction": "Slowly lower your body to the ground, then push back up."
+    }
+    mock_exercises_collection.find_one.return_value = mock_exercise
+
+    exercise_id = str(random_exercise_id)
+    result = get_instruction(exercise_id)
+
+    assert result == {
+        "workout_name": "Push Up",
+        "instruction": "Slowly lower your body to the ground, then push back up."
+    }
+    mock_exercises_collection.find_one.assert_called_once_with(
+        {"_id": ObjectId(exercise_id)},
+        {"instruction": 1, "workout_name": 1}
+    )
+
+@patch('app.exercises_collection')
+def test_get_instruction_without_instruction(mock_exercises_collection):
+    random_exercise_id = ObjectId("507f1f77bcf86cd799439011")
+    mock_exercise = {
+        "_id": random_exercise_id,
+        "workout_name": "Push Up"
+    }
+    mock_exercises_collection.find_one.return_value = mock_exercise
+
+    exercise_id = str(random_exercise_id)
+    result = get_instruction(exercise_id)
+
+    assert result == {
+        "workout_name": "Push Up",
+        "instruction": "No instructions available for this exercise."
+    }
+    mock_exercises_collection.find_one.assert_called_once_with(
+        {"_id": ObjectId(exercise_id)},
+        {"instruction": 1, "workout_name": 1}
+    )
+
+@patch('app.exercises_collection')
+def test_get_instruction_not_found(mock_exercises_collection):
+    mock_exercises_collection.find_one.return_value = None
+    random_exercise_id = ObjectId("507f1f77bcf86cd799439011")
+
+    exercise_id = str(random_exercise_id)
+    result = get_instruction(exercise_id)
+
+    assert result == {
+        "error": f"Exercise with ID {exercise_id} not found."
+    }
+    mock_exercises_collection.find_one.assert_called_once_with(
+        {"_id": ObjectId(exercise_id)},
+        {"instruction": 1, "workout_name": 1}
+    )
 
 if __name__ == "__main__":
     pytest.main()
