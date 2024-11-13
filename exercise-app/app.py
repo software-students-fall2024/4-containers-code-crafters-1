@@ -277,8 +277,10 @@ def search():
         for result in results:
             result['_id'] = str(result['_id'])
         session['results'] = results
+        #这边也需要调用database函数 add，post我的search
         return redirect(url_for('add'))
 
+    #这里应该调用database函数 get，让exercise=database里面的recent data，倒序
     exercises = default_exercises()
     return render_template('search.html', exercises=exercises)
 

@@ -34,7 +34,7 @@ See documentation for running [MongoDB within Docker](https://www.mongodb.com/co
 docker run --name mongodb -d -p 27017:27017 mongo
 ```
 能够上传转换过音频的接口：add_search_result
-
+                    get_search_result
 search_history
 {
     uid:
@@ -74,11 +74,13 @@ The web app must be built using the Python [flask](https://palletsprojects.com/p
 - Like the other parts, the web app must run within its own Docker container.
 - Put all code for this subsystem within the `web-app` subdirectory of this repository.
 
-语音开始-暂停的button
+-语音开始-暂停的button
 调用ml的接口去进行语音识别
-test
 get到结果，并搜索
 每次搜索完都需要调用add_search_result
+search页面改成按照倒叙的历史记录
+
+test
 
 ## Developer workflow
 

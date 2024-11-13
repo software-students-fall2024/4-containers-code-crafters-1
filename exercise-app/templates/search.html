@@ -21,6 +21,7 @@
         <form id="search-form">
             <input type="text" id="query" name="query" required>
             <button type="button" class="search-btn" id="search-btn">Search</button>
+            <button type="button" class="voice-btn" id="voice-btn">🎤</button>
         </form>
 
         <div class="exercise-list">
@@ -86,6 +87,52 @@
                 });
             });
         });
+
+
+        
+        const voiceBtn = document.getElementById('voice-btn');
+        let isListening = false;
+        let recognition;
+
+        // 需要修改
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false; 
+            recognition.interimResults = false; 
+            recognition.lang = 'en-US'; 
+
+            recognition.onstart = function() {
+                voiceBtn.textContent = '🛑 Stop';
+                console.log('Voice recognition started');
+            };
+
+            recognition.onend = function() {
+                voiceBtn.textContent = '🎤';
+                isListening = false;
+                console.log('Voice recognition stopped');
+            };
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('query').value = transcript; 
+                // Optionally, call your ML function here
+                console.log('Voice input received:', transcript);
+            };
+
+            voiceBtn.addEventListener('click', function() {
+                if (isListening) {
+                    recognition.stop();
+                    isListening = false;
+                } else {
+                    recognition.start();
+                    isListening = true;
+                }
+            });
+        } else {
+            voiceBtn.disabled = true;
+            voiceBtn.title = 'Speech recognition not supported in this browser';
+        }
     </script>
 </body>
 </html>
