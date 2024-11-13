@@ -3,8 +3,10 @@ import json
 from dotenv import load_dotenv
 from google.cloud import speech
 from google.oauth2 import service_account
+from flask import Flask, request, jsonify
 
 load_dotenv()
+app = Flask(__name__)
 
 
 def get_google_cloud_credentials():
@@ -44,10 +46,28 @@ def transcribe_file(audio_file: str, credentials) -> speech.RecognizeResponse:
         print(f"An error occurred: {e}")
 
 
+@app.route('/transcribe', methods=['POST'])
+def transcribe():
+    data = request.json
+    audio_file = data.get("audio_file")
+
+    if not audio_file:
+        return jsonify({"error": "Audio file path is required"}), 400
+
+    credentials = get_google_cloud_credentials()
+    result = transcribe_file(audio_file, credentials)
+
+    if result is None:
+        return jsonify({"error": "Transcription failed"}), 500
+
+    return result
+
+
 if __name__ == '__main__':
     credentials = get_google_cloud_credentials()
     res = transcribe_file("recording.wav", credentials)
     print(res)
+    app.run(host='0.0.0.0', port=8080)
 
 
 '''
