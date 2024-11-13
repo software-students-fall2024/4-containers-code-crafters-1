@@ -1,0 +1,24 @@
+version: '3'
+
+services:
+  web-app:
+    build:
+      context: ./web-app
+    ports:
+      - "5001:5001"  
+    depends_on:
+      - machine-learning-client  #
+    networks:
+      - app-network
+
+  machine-learning-client:
+    build:
+      context: ./machine-learning-client
+    ports:
+      - "8080:8080"  
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
