@@ -445,5 +445,59 @@ def test_register_successful(mock_generate_password_hash, mock_insert_todo, mock
     assert actual_call_args["date"].replace(microsecond=0) == response_datetime.replace(microsecond=0)
     assert actual_call_args["todo"] == []
 
+### Test login page function ###
+def test_login_page(client):
+    response = client.get('/login')
+    assert response.status_code == 200
+    assert b'Login' in response.data
+
+# sign up page
+def test_signup_page(client):
+    response = client.get('/register')
+    assert response.status_code == 200
+    assert b'Sign Up' in response.data
+
+### Test login function ###
+@patch('app.users_collection.find_one')
+@patch('app.check_password_hash')
+@patch('app.login_user')
+def test_login_success(mock_login_user, mock_check_password_hash, mock_find_one, client):
+    mock_find_one.return_value = {
+        '_id': 'mock_user_id',
+        'username': 'testuser',
+        'password': 'hashed_password'
+    }
+    mock_check_password_hash.return_value = True 
+    response = client.post('/login', data={'username': 'testuser', 'password': 'testpassword'})
+
+    assert response.status_code == 200
+    assert response.json == {'message': 'Login successful!', 'success': True}
+    mock_login_user.assert_called_once()
+
+# Invalid username
+@patch('app.users_collection.find_one')
+def test_login_invalid_username(mock_find_one, client):
+    # user not found in the database
+    mock_find_one.return_value = None
+    response = client.post('/login', data={'username': 'unknownuser', 'password': 'testpassword'})
+
+    assert response.status_code == 401
+    assert response.json == {'message': 'Invalid username or password!', 'success': False}
+
+# Invalid password
+@patch('app.users_collection.find_one')
+@patch('app.check_password_hash')
+def test_login_invalid_password(mock_check_password_hash, mock_find_one, client):
+    mock_find_one.return_value = {
+        '_id': 'mock_user_id',
+        'username': 'testuser',
+        'password': 'hashed_password'
+    }
+    mock_check_password_hash.return_value = False 
+
+    response = client.post('/login', data={'username': 'testuser', 'password': 'wrongpassword'})
+
+    assert response.status_code == 401
+    assert response.json == {'message': 'Invalid username or password!', 'success': False}
 if __name__ == "__main__":
     pytest.main()
