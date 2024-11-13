@@ -3,10 +3,10 @@ name: Python application
 on:
   push:
     branches:
-      - main  # 或者指定其他分支，例如 "develop"
+      - main  
   pull_request:
     branches:
-      - main  # 也可以在 Pull Request 时触发
+      - main  
 
 jobs:
   test:
