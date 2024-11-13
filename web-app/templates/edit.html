@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercises Page</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style1.css') }}">
+</head>
+<body>
+    <div class="exercise-container">
+        <header class="header-container">
+            <button class="back-btn" onclick="window.location.href='/todo';">Back</button>
+            <h1 class="exercise-title">{{ exercise.workout_name }}</h1>
+        </header>
+
+        <p>You can edit or update your workout details. Keep your workout recorded!</p>
+
+        <section class="more-info">
+            <a href="{{ url_for('instructions', exercise_id=exercise.exercise_id) }}">
+                More Instruction
+            </a>
+        </section>
+
+
+        <form id="exercise-form" method="POST" action="/edit">
+            <div class="exercise-data">
+                <div class="exercise-time">
+                    <label for="working_time">Workout Time:</label>
+                    <input type="text" name="working_time" id="working_time" 
+                           placeholder="Min" 
+                           value="{{ exercise.working_time if exercise.working_time is not none else '' }}" 
+                           style="display: inline-block; width: 50px;">
+                </div>
+        
+                <label for="reps">Reps/Group:</label>
+                <input type="text" name="reps" id="reps" 
+                       placeholder="_" 
+                       value="{{ exercise.reps if exercise.reps is not none else '' }}">
+        
+                <label for="weight">Weight:</label>
+                <input type="text" name="weight" id="weight" 
+                       placeholder="_ Kg" 
+                       value="{{ exercise.weight if exercise.weight is not none else '' }}">
+        
+                <div class="exercise-save">
+                    <button class="exercise-save-btn" data-id="{{ exercise.exercise_todo_id }}">Save</button>
+                </div>
+            </div>
+        </form>
+        
+
+        <footer>
+            <p>All rights reserved. <a href="#">Privacy policy</a></p>
+        </footer>
+    </div>
+
+    <script>
+        document.getElementById('exercise-form').addEventListener('submit', function(event) {
+            event.preventDefault();  
+            
+            const exercise_todo_id = "{{ exercise.exercise_todo_id }}"; 
+            const formData = new FormData(this);  
+    
+            fetch(`/edit?exercise_todo_id=${exercise_todo_id}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    alert(data.message);  
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while saving the exercise.');
+            });
+        });
+    </script>
+    
+</body>
+</html>
