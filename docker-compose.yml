@@ -7,7 +7,7 @@ services:
     ports:
       - "5001:5001"  
     depends_on:
-      - machine-learning-client  #
+      - machine-learning-client  
     networks:
       - app-network
 
