@@ -208,7 +208,6 @@ def get_exercise_in_todo(exercise_todo_id: int):
 
 
 def get_instruction(exercise_id: str):
-
     exercise = exercises_collection.find_one({"_id": ObjectId(exercise_id)}, {"instruction": 1, "workout_name": 1})
     
     if exercise:
@@ -243,40 +242,9 @@ def get_matching_exercises_from_history():
     print('matching exercises are:', matching_exercises_list)
     return matching_exercises_list 
 
-search_history_collection = db['search_history']
-
-@app.route('/add_search_history', methods=['POST'])
-@login_required
-def add_search_history():
-    content = request.form.get("content")
-    if not content:
-        return jsonify({"error": "Content (transcribed text) is required"}), 400
-
-    search_entry = {
-        "user_id": current_user.id,
-        "content": content,
-        "time": datetime.utcnow()
-    }
-
-    result = search_history_collection.insert_one(search_entry)
-
-    if result.inserted_id:
-        return jsonify({"message": "Search history added successfully"}), 200
-    else:
-        return jsonify({"error": "Failed to add search history"}), 500
-
-@app.route('/get_search_history', methods=['GET'])
-@login_required
-def get_search_history():
-    results = search_history_collection.find({"user_id": current_user.id}, {"_id": 0, "user_id": 1, "content": 1, "time": 1})
-    history = list(results)
-
-    return jsonify({"search_history": history})
-
 @app.route('/')
 def home():
     return redirect(url_for('todo'))
-
 
 @login_manager.user_loader
 def load_user(user_id):
