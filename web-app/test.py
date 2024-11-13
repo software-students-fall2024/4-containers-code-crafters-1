@@ -1,9 +1,10 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from bson import ObjectId
-from app import search_exercise, get_exercise, get_todo, delete_todo, add_todo, get_exercise_in_todo, edit_exercise, get_instruction, search_exercise_rigid, get_matching_exercises_from_history
-from app import app
 from datetime import datetime
+from flask import Flask
+from flask_login import FlaskLoginClient, login_user
+from app import User, app, search_exercise, get_exercise, get_todo, delete_todo, add_todo, get_exercise_in_todo, edit_exercise, get_instruction, search_exercise_rigid, get_matching_exercises_from_history, add_search_history, get_search_history
 
 @pytest.fixture
 def client():
@@ -499,5 +500,59 @@ def test_login_invalid_password(mock_check_password_hash, mock_find_one, client)
 
     assert response.status_code == 401
     assert response.json == {'message': 'Invalid username or password!', 'success': False}
+
+@patch('app.current_user')
+@patch('app.search_history_collection')
+def test_add_search_history(mock_search_history_collection, mock_current_user):
+    mock_current_user.id = "user123"
+
+    content = "Test Search Content"
+    add_search_history(content)
+    mock_search_history_collection.insert_one.assert_called_once()
+
+    inserted_entry = mock_search_history_collection.insert_one.call_args[0][0]
+    
+    assert inserted_entry["user_id"] == "user123"
+    assert inserted_entry["content"] == content
+    assert isinstance(inserted_entry["time"], datetime)
+
+@patch('app.current_user')
+@patch('app.search_history_collection')
+def test_get_search_history(mock_search_history_collection, mock_current_user):
+    mock_current_user.id = "user123"
+
+    mock_results = [
+        {"user_id": "user123", "content": "Test Content 1", "time": datetime(2024, 11, 12, 12, 0, 0)},
+        {"user_id": "user123", "content": "Test Content 2", "time": datetime(2024, 11, 12, 11, 0, 0)},
+    ]
+    mock_search_history_collection.find.return_value.sort.return_value = mock_results
+
+    history = get_search_history()
+
+    assert len(history) == 2
+    assert history[0]["content"] == "Test Content 1"
+    assert history[1]["content"] == "Test Content 2"
+    mock_search_history_collection.find.assert_called_once_with(
+        {"user_id": "user123"}, 
+        {"_id": 0, "user_id": 1, "content": 1, "time": 1}
+    )
+
+@patch('app.get_exercise')
+def test_instructions_route(mock_get_exercise, client):
+    mock_exercise = {
+        "_id": "exercise123",
+        "workout_name": "Push Up",
+        "description": "A great upper body workout.",
+        "instruction": "Make sure to keep your back straight while performing this exercise."
+    }
+    mock_get_exercise.return_value = mock_exercise
+
+    response = client.get('/instructions?exercise_id=exercise123')
+
+    assert response.status_code == 200
+
+    assert b'A great upper body workout.' in response.data
+    assert b'Make sure to keep your back straight while performing this exercise.' in response.data
+
 if __name__ == "__main__":
     pytest.main()
