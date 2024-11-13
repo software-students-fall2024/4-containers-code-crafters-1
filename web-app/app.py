@@ -66,6 +66,7 @@ def search_exercise(query: str):
     exercises_list = list(exercises)  
     return exercises_list
 
+# test function needed #
 def search_exercise_rigid(query: str):
     exercises = exercises_collection.find({
         "workout_name": {
@@ -169,7 +170,7 @@ def edit_exercise(exercise_todo_id, working_time, weight, reps):
     else:
         # print(f"Exercise with To-Do ID {exercise_todo_id} not found.")
         return False
-        
+
 def add_search_history(content):
     search_entry = {
         "user_id": current_user.id,
@@ -178,6 +179,7 @@ def add_search_history(content):
     }
     result = search_history_collection.insert_one(search_entry)
 
+# test function needed #
 def get_search_history():
     results = search_history_collection.find(
         {"user_id": current_user.id}, 
@@ -186,7 +188,7 @@ def get_search_history():
 
     history = list(results)
     return history
-
+  
 def get_exercise_in_todo(exercise_todo_id: int):
     todo_item = todo_collection.find_one({"user_id": current_user.id})
     
@@ -225,10 +227,10 @@ def get_instruction(exercise_id: str):
             "error": f"Exercise with ID {exercise_id} not found."
         }
 
-
+# test function needed #
 def get_matching_exercises_from_history():
     history = get_search_history()
-    print('histroy is: ', history)
+    print('history is: ', history)
 
     content_names = [entry['content'] for entry in history]
     print('content name is:', content_names)
