@@ -60,14 +60,17 @@ def transcribe():
     if result is None:
         return jsonify({"error": "Transcription failed"}), 500
 
-    return result
+    return jsonify({
+        "transcript": result.transcript,
+        "confidence": result.confidence
+    })
 
 
 if __name__ == '__main__':
     credentials = get_google_cloud_credentials()
-    res = transcribe_file("recording.wav", credentials)
+    res = transcribe_file("./machine-learning-client/recording.wav", credentials)
     print(res)
-    app.run(host='0.0.0.0', port=8080)
+    # app.run(host='0.0.0.0', port=8080)
 
 
 '''
