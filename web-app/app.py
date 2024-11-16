@@ -8,6 +8,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from werkzeug.utils import secure_filename
+import requests
 
 
 load_dotenv()
@@ -229,17 +230,17 @@ def get_instruction(exercise_id: str):
 # test function needed #
 def get_matching_exercises_from_history():
     history = get_search_history()
-    print('history is: ', history)
+    #print('history is: ', history)
 
     content_names = [entry['content'] for entry in history]
-    print('content name is:', content_names)
+    #print('content name is:', content_names)
 
     matching_exercises_list = []
     for name in content_names:
         matching_exercises = search_exercise_rigid(name)
         matching_exercises_list.extend(matching_exercises)
 
-    print('matching exercises are:', matching_exercises_list)
+    #print('matching exercises are:', matching_exercises_list)
     return matching_exercises_list 
 
 @app.route('/')
@@ -324,7 +325,7 @@ def search():
         return redirect(url_for('add'))
 
     exercises = get_matching_exercises_from_history()
-    print('current result should be: ', exercises)
+    #print('current result should be: ', exercises)
 
     return render_template('search.html', exercises=exercises)
 
@@ -368,7 +369,7 @@ def add():
 def add_exercise():
     exercise_id = request.args.get('exercise_id')
     
-    print(f"Received request to add exercise with ID: {exercise_id}")
+    #print(f"Received request to add exercise with ID: {exercise_id}")
     
     if not exercise_id:
         print("No exercise ID provided")
@@ -410,25 +411,76 @@ def instructions():
 
     return render_template('instructions.html', exercise=exercise)
 
+'''@app.route('/upload-audio', methods=['POST'])
+def upload_audio():
+    if 'audio' not in request.files:
+        return jsonify({"error": "No audio file uploaded"}), 400
+
+    # Save the uploaded audio file
+    audio = request.files['audio']
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], audio.filename)
+    audio.save(file_path)
+
+    # Call the Speech-to-Text container
+    transcription = call_speech_to_text_service(file_path)
+
+    return jsonify({"transcription": transcription})
+
+def call_speech_to_text_service(file_path):
+    url = 'http://machine-learning-client:8080/transcribe'  
+    print(f"Sending request to {url} with file: {file_path}")
+    with open(file_path, 'rb') as audio_file:
+        files = {'audio': (file_path, audio_file, 'audio/wav')}
+        try:
+            response = requests.post(url, files=files)
+            print(f"Received response status: {response.status_code}, body: {response.text}")
+            response.raise_for_status()
+            return response.json().get('transcript', 'No transcription returned')
+        except requests.RequestException as e:
+            print(f"Error communicating with the Speech-to-Text service: {e}")
+            return "Error during transcription"
+'''
+import subprocess
+import os
+
 @app.route('/upload-audio', methods=['POST'])
 def upload_audio():
     if 'audio' not in request.files:
-        return jsonify({'error': 'No audio file provided'}), 400
+        return jsonify({"error": "No audio file uploaded"}), 400
 
-    file = request.files['audio']
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
+    # Save the uploaded audio file
+    audio = request.files['audio']
+    original_file_path = os.path.join(app.config['UPLOAD_FOLDER'], audio.filename)
+    audio.save(original_file_path)
 
-    # Call your ML function to transcribe the file
+    # Convert the audio file to WAV using ffmpeg
+    wav_file_path = os.path.splitext(original_file_path)[0] + '_converted.wav'
     try:
-        from google.cloud import speech
-        # Provide the correct credentials
-        credentials = ...
-        result = transcribe_file(filepath, credentials)
-        return jsonify({'transcription': result.transcript})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        subprocess.run(
+            ['ffmpeg', '-y', '-i', original_file_path, '-ar', '16000', '-ac', '1', wav_file_path],
+            check=True
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"Error converting audio to WAV: {e}")
+        return jsonify({"error": "Failed to convert audio file"}), 500
+
+    # Call the Speech-to-Text container with the converted WAV file
+    transcription = call_speech_to_text_service(wav_file_path)
+
+    return jsonify({"transcription": transcription})
+
+def call_speech_to_text_service(file_path):
+    url = 'http://machine-learning-client:8080/transcribe'
+    data = {"audio_file": file_path}
+    headers = {'Content-Type': 'application/json'}
+    try:
+        response = requests.post(url, json=data, headers=headers)
+        response.raise_for_status()
+        return response.json().get('transcript', 'No transcription returned')
+    except requests.RequestException as e:
+        print(f"Error communicating with the Speech-to-Text service: {e}")
+        return "Error during transcription"
+
 
 
 if __name__ == "__main__":
