@@ -68,9 +68,9 @@ def transcribe():
 
 
 if __name__ == '__main__':
-    credentials = get_google_cloud_credentials()
-    '''res = transcribe_file("./machine-learning-client/recording.wav", credentials)
-    print(res)'''
+    # credentials = get_google_cloud_credentials()
+    # res = transcribe_file("./machine-learning-client/recording.wav", credentials)
+    # print(res)
     app.run(host='0.0.0.0', port=8080)
 
 
