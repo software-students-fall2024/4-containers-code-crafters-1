@@ -42,7 +42,6 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-
 class User(UserMixin):
     def __init__(self, user_id, username, password):
         self.id = user_id
