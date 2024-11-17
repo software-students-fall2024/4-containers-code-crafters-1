@@ -41,6 +41,19 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+def create_app():
+    app = Flask(__name__)
+    app.config['SECRET_KEY'] = app.secret_key
+    app.config['MONGO_URI'] = mongo_uri
+
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'login'
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.get(user_id)
+    return app
 
 class User(UserMixin):
     def __init__(self, user_id, username, password):

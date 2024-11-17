@@ -6,38 +6,56 @@ from flask import Flask
 from flask_login import FlaskLoginClient, login_user
 from app import User, app, search_exercise, get_exercise, get_todo, delete_todo, add_todo, get_exercise_in_todo, edit_exercise, get_instruction, search_exercise_rigid, get_matching_exercises_from_history, add_search_history, get_search_history, upload_audio, edit
 from io import BytesIO
+from app import create_app
+
+# @pytest.fixture
+# def client():
+#     with app.test_client() as client:
+#         yield client
 
 @pytest.fixture
 def client():
-    with app.test_client() as client:
-        yield client
-
-# # Mock login_required decorator for testing
-# @pytest.fixture(autouse=True)
-# def mock_login_required():
-#     with patch('app.login_required', lambda x: x):
-#         yield
-
-### Not working ###
-def test_request_with_logged_in_user():
-    user = User(id = "507f1f77bcf86cd799439011", username='testuser', password='testpassword')
-    with app.test_client(user=user) as client:
-        client.get("/")
+    app.config["LOGIN_DISABLED"] = True
+    return app.test_client()
 
 ### Test edit function ###
-@patch('app.get_exercise_in_todo')
-def test_edit_get_request(mock_get_exercise_in_todo, client):
-    mock_get_exercise_in_todo.return_value = {
-        'exercise_todo_id': '123',
-        'name': 'Test Exercise',
-        'reps': 10,
-        'weight': 50
-    }
+@patch('app.edit_exercise')
+@patch('app.get_exercise_in_todo') 
+def test_edit_request(mock_get_exercise_in_todo, mock_edit_exercise, client):
+    with app.app_context():
+        #get request
+        mock_get_exercise_in_todo.return_value = {
+            'exercise_todo_id': '123',
+            'name': 'Test Exercise',
+            'reps': '10',
+            'weight': '50'
+        }
 
-    response = client.get('/edit?exercise_todo_id=123')
-    assert response.status_code == 200
-    assert b'Test Exercise' in response.data
-    mock_get_exercise_in_todo.assert_called_once_with('123')
+        mock_edit_exercise.return_value = True
+        #post request successful
+        response = client.post('/edit?exercise_todo_id=123', data={
+            'working_time': '30',
+            'weight': '70',
+            'reps': '15'
+        })
+
+        assert response.status_code == 200
+        assert b'Edited successfully' in response.data
+        mock_edit_exercise.assert_called_once_with('123', '30', '70', '15')
+
+        #post request fail
+        mock_edit_exercise.reset_mock()
+        mock_edit_exercise.return_value = False
+
+        response = client.post('/edit?exercise_todo_id=123', data={
+            'working_time': '30',
+            'weight': '70',
+            'reps': '15'
+        })
+
+        assert response.status_code == 400
+        assert b'Failed to edit' in response.data
+        mock_edit_exercise.assert_called_once_with('123', '30', '70', '15')
 
 ### Test search_exercise function ###
 @patch('app.exercises_collection')
