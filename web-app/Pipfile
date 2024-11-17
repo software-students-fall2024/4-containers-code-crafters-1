@@ -18,6 +18,8 @@ markupsafe = "==2.1.2"
 werkzeug = "==2.2.3"
 dnspython = "==2.7.0"
 bson = "==0.5.10"
+requests = "*"
+ffmpeg-python = "*"
 
 [dev-packages]
 
