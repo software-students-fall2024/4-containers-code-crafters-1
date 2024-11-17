@@ -9,7 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from werkzeug.utils import secure_filename
 import requests
-
+import re
 
 load_dotenv()
 
@@ -57,25 +57,58 @@ class User(UserMixin):
         return None
 
 
+def normalize_text(text: str) -> str:
+
+    text = re.sub(r'[\s\-]', '', text) 
+    return text.lower()  
+
 def search_exercise(query: str):
+
+    normalized_query = normalize_text(query)  
+
     exercises = exercises_collection.find({
-        "workout_name": {
-            "$regex": query, 
-            "$options": "i" 
+        "$expr": {
+            "$regexMatch": {
+                "input": {
+                    "$replaceAll": {
+                        "input": {"$replaceAll": {"input": "$workout_name", "find": "-", "replacement": ""}},
+                        "find": " ",
+                        "replacement": ""
+                    }
+                },
+                "regex": normalized_query,
+                "options": "i"  
+            }
         }
     })
-    exercises_list = list(exercises)  
+
+    exercises_list = list(exercises)
     return exercises_list
 
-# test function needed #
 def search_exercise_rigid(query: str):
+
+    normalized_query = normalize_text(query) 
+
     exercises = exercises_collection.find({
-        "workout_name": {
-            "$regex": f"^{query}$", 
-            "$options": "i" 
+        "$expr": {
+            "$eq": [
+                {
+                    "$toLower": {
+                        "$replaceAll": {
+                            "input": {
+                                "$replaceAll": {"input": "$workout_name", "find": "-", "replacement": ""}
+                            },
+                            "find": " ",
+                            "replacement": ""
+                        }
+                    }
+                },
+                normalized_query
+            ]
         }
     })
-    exercises_list = list(exercises)  
+
+    exercises_list = list(exercises)
     return exercises_list
 
 def get_exercise(exercise_id: str):
@@ -480,8 +513,89 @@ def call_speech_to_text_service(file_path):
     except requests.RequestException as e:
         print(f"Error communicating with the Speech-to-Text service: {e}")
         return "Error during transcription"
+def parse_voice_command(transcription):
+
+    exercise_match = re.search(r"exercise\s+['\"](.+?)['\"]", transcription, re.IGNORECASE)
+    exercise_name = exercise_match.group(1) if exercise_match else None
+
+    time_match = re.search(r"(\d+)\s*minutes?\s*(\d+)?\s*seconds?", transcription, re.IGNORECASE)
+    time_params = {
+        "minutes": int(time_match.group(1)) if time_match else 0,
+        "seconds": int(time_match.group(2)) if time_match and time_match.group(2) else 0,
+    } if time_match else None
+
+    if not exercise_name:
+        print("Failed to parse exercise name from transcription.")
+        return None
+
+    return {
+        "exercise": exercise_name,
+        "time": time_params
+    }
+
+def get_latest_todo_id():
+
+    todo_list = get_todo()
+    if not todo_list:
+        return None
+    return max(item["exercise_todo_id"] for item in todo_list if "exercise_todo_id" in item)
 
 
+@app.route('/add_with_voice', methods=['POST'])
+@login_required
+def add_with_voice():
+    if 'audio' not in request.files:
+        return jsonify({'message': 'No audio file provided!'}), 400
+
+    audio_file = request.files['audio']
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], audio_file.filename)
+    audio_file.save(filepath)
+
+
+    transcription = call_speech_to_text_service(filepath)
+    if not transcription:
+        return jsonify({'message': 'Failed to transcribe audio!'}), 500
+
+
+    parsed_data = parse_voice_command(transcription)
+    if not parsed_data:
+        return jsonify({'message': 'Failed to parse voice command!'}), 400
+
+    exercise_name = parsed_data.get("exercise")
+    time_params = parsed_data.get("time")
+
+
+    exercises = search_exercise(exercise_name)
+    if not exercises:
+        return jsonify({'message': f'Exercise "{exercise_name}" not found!'}), 404
+
+
+    exercise_id = str(exercises[0]["_id"])
+
+    success = add_todo(exercise_id)
+    if not success:
+        return jsonify({'message': 'Failed to add exercise to To-Do list!'}), 500
+
+
+    if time_params:
+        exercise_todo_id = get_latest_todo_id()
+        if not exercise_todo_id:
+            return jsonify({'message': 'Failed to retrieve latest To-Do item!'}), 500
+
+        edit_success = edit_exercise(
+            exercise_todo_id,
+            working_time=f"{time_params['minutes']}:{time_params['seconds']}",
+            weight=None,
+            reps=None
+        )
+        if not edit_success:
+            return jsonify({'message': 'Failed to update exercise time!'}), 500
+
+    return jsonify({
+        'message': 'Exercise added and updated successfully!',
+        'exercise': exercise_name,
+        'time': time_params
+    }), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001)
