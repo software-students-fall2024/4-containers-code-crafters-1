@@ -6,7 +6,6 @@ from flask import Flask
 from flask_login import FlaskLoginClient, login_user
 from app import User, app, search_exercise, get_exercise, get_todo, delete_todo, add_todo, get_exercise_in_todo, edit_exercise, get_instruction, search_exercise_rigid, get_matching_exercises_from_history, add_search_history, get_search_history, upload_audio, edit
 from io import BytesIO
-from app import create_app
 
 # @pytest.fixture
 # def client():
@@ -19,11 +18,24 @@ def client():
     return app.test_client()
 
 ### Test edit function ###
+@patch('app.get_exercise_in_todo')
+def test_edit_get_route(mock_get_exercise_in_todo, client):
+    with app.app_context():
+        mock_get_exercise_in_todo.return_value = {
+            'exercise_todo_id': '123',
+            'name': 'Test Exercise',
+            'reps': 10,
+            'weight': 50
+        }
+
+        response = client.get('/edit?exercise_todo_id=123')
+        assert response.status_code == 200
+        mock_get_exercise_in_todo.assert_called_once_with('123')
+
 @patch('app.edit_exercise')
 @patch('app.get_exercise_in_todo') 
-def test_edit_request(mock_get_exercise_in_todo, mock_edit_exercise, client):
+def test_edit_route(mock_get_exercise_in_todo, mock_edit_exercise, client):
     with app.app_context():
-        #get request
         mock_get_exercise_in_todo.return_value = {
             'exercise_todo_id': '123',
             'name': 'Test Exercise',
@@ -56,6 +68,128 @@ def test_edit_request(mock_get_exercise_in_todo, mock_edit_exercise, client):
         assert response.status_code == 400
         assert b'Failed to edit' in response.data
         mock_edit_exercise.assert_called_once_with('123', '30', '70', '15')
+
+### Test search function ###
+@patch('app.search_exercise')
+@patch('app.add_search_history')
+@patch('app.get_matching_exercises_from_history')
+def test_search_route(mock_get_history, mock_add_history, mock_search_exercise, client):
+    with app.app_context():
+        mock_get_history.return_value = [
+            {'_id': '1', 'name': 'Push Up'},
+            {'_id': '2', 'name': 'Squats'}
+        ]
+        response = client.get('/search')
+
+        # valid check
+        mock_search_exercise.return_value = [{'_id': '1', 'name': 'Push Up'}]
+        response = client.post('/search', data={'query': 'push'})
+
+        # redirect check
+        assert response.status_code == 302 
+        mock_search_exercise.assert_called_once_with('push') 
+        mock_add_history.assert_called_once_with('push')
+
+        # empty search query
+        response = client.post('/search', data={'query': ''})
+        assert response.status_code == 400
+        assert b'Search content cannot be empty.' in response.data
+
+        # non-existent search query
+        mock_search_exercise.reset_mock()
+        mock_search_exercise.return_value = []
+        response = client.post('/search', data={'query': 'nonexistent'})
+
+        # fail search
+        assert response.status_code == 404
+        assert b'Exercise was not found.' in response.data
+        mock_search_exercise.assert_called_once_with('nonexistent')
+
+### Test add function ###
+@patch('app.add_todo')
+def test_add_exercise_route(mock_add_todo, client):
+    with app.app_context():
+        # add successful
+        mock_add_todo.return_value = True
+        response = client.post('/add_exercise?exercise_id=123')
+        assert response.status_code == 200
+        assert b'Added successfully' in response.data
+        mock_add_todo.assert_called_once_with('123') 
+
+        # miss exercise id to add
+        mock_add_todo.reset_mock()
+        response = client.post('/add_exercise')
+        assert response.status_code == 400
+        assert b'Exercise ID is required' in response.data
+        mock_add_todo.assert_not_called()
+
+        # add exercise fail
+        mock_add_todo.reset_mock() 
+        mock_add_todo.return_value = False
+        response = client.post('/add_exercise?exercise_id=456')
+
+        # add exercise fail
+        assert response.status_code == 400
+        assert b'Failed to add' in response.data
+        mock_add_todo.assert_called_once_with('456')
+
+def test_add_route_with_results_in_session(client):
+    with app.app_context():
+        with client.session_transaction() as session:
+            session['results'] = [
+                {'_id': '1', 'name': 'Push Up'},
+                {'_id': '2', 'name': 'Squats'}
+            ]
+
+        response = client.get('/add')
+        assert response.status_code == 200
+        assert b'exercise_id=1' in response.data 
+        assert b'exercise_id=2' in response.data
+        assert b'const exercisesLength = 2' in response.data
+
+def test_add_route_empty_session(client):
+    with app.app_context():
+        with client.session_transaction() as session:
+            session.pop('results', None)
+
+        response = client.get('/add')
+
+        assert response.status_code == 200
+        assert b'const exercisesLength = 0' in response.data
+
+### Test delete route ###
+@patch('app.get_todo')
+def test_delete_exercise_route(mock_get_todo, client):
+    with app.app_context():
+        mock_get_todo.return_value = [
+            {'_id': '1', 'name': 'Push Up'},
+            {'_id': '2', 'name': 'Squats'}
+        ]
+
+        response = client.get('/delete_exercise')
+        assert response.status_code == 200
+        assert b'exercise-' in response.data 
+        mock_get_todo.assert_called_once()
+
+### Test delete exercise id function ###
+@patch('app.delete_todo') 
+def test_delete_exercise_id_success(mock_delete_todo, client):
+    mock_delete_todo.return_value = True
+
+    response = client.delete('/delete_exercise/123')
+
+    assert response.status_code == 204
+    assert response.data == b'' 
+    mock_delete_todo.assert_called_once_with(123)
+
+@patch('app.delete_todo')
+def test_delete_exercise_id_failure(mock_delete_todo, client):
+    mock_delete_todo.return_value = False
+
+    response = client.delete('/delete_exercise/456')
+    assert response.status_code == 404 
+    assert b'Failed to delete' in response.data
+    mock_delete_todo.assert_called_once_with(456)
 
 ### Test search_exercise function ###
 @patch('app.exercises_collection')
