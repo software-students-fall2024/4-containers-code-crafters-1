@@ -4,6 +4,8 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+pylint = "*"
+black = "*"
 flask = "==2.2.2"
 python-dotenv = "==0.16.0"
 pymongo = "==4.10.1"
@@ -20,12 +22,9 @@ dnspython = "==2.7.0"
 bson = "==0.5.10"
 requests = "*"
 ffmpeg-python = "*"
-pylint = "*"
-black = "*"
+
 
 [dev-packages]
-pytest = "*"
-pylint = "*"
 
 [dev-packages]
 
