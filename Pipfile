@@ -4,11 +4,8 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-python-dotenv = "*"
-google-cloud-speech = "*"
-google-auth = "*"
-flask = "*"
-pytest = "*"
+pylint = "*"
+black = "*"
 
 [dev-packages]
 
