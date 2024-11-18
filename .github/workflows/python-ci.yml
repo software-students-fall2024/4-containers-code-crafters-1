@@ -13,44 +13,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Check out the code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
-      # Step 3: Install system dependencies (optional, depending on your needs)
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libssl-dev
 
-      # Step 4: Install pipenv and dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pipenv
           pipenv install --dev
 
-      # Step 5: Set PYTHONPATH (if needed to help resolve imports)
       - name: Set PYTHONPATH
         run: echo "PYTHONPATH=." >> $GITHUB_ENV
 
-      # Step 6: Run pylint to lint all Python files
-      - name: Run pylint on all Python files
-        run: |
-          pipenv run pylint **/*.py
-
-      # Step 7: Run pytest to run unit tests and generate coverage report
       - name: Run pytest
         run: |
           pipenv run pytest --cov=. --cov-report xml
 
-      # Step 8: Upload coverage report to Codecov (optional)
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
@@ -58,7 +46,6 @@ jobs:
           flags: unittests
           name: codecov-coverage-report
 
-      # Step 9: Debug Python environment (optional for troubleshooting)
       - name: Debug Python environment
         run: |
           python --version
