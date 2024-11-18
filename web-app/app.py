@@ -644,6 +644,7 @@ def parse_voice_command(transcription):
 @app.route('/process-audio', methods=['POST'])
 @login_required
 def process_audio():
+    # pylint: disable=too-many-return-statements
     """
     Processes uploaded audio. Converts it to WAV format, transcribes it to text,
     extracts relevant exercise details, and updates the corresponding exercise in the To-Do list.
