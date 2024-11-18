@@ -32,6 +32,7 @@ def client():
     app.config["LOGIN_DISABLED"] = True
     return app.test_client()
 
+
 ### Test edit function ###
 @patch("app.get_exercise_in_todo")
 def test_edit_get_route(mock_get_exercise_in_todo, client):
@@ -749,7 +750,11 @@ def test_register_existing_username(mock_find_one, client):
 @patch("app.todo_collection.insert_one")
 @patch("app.generate_password_hash")
 def test_register_successful(
-    mock_generate_password_hash, mock_insert_todo, mock_insert_user, mock_find_one, client
+    mock_generate_password_hash,
+    mock_insert_todo,
+    mock_insert_user,
+    mock_find_one,
+    client,
 ):
     """Test register successful"""
     # pylint: disable=redefined-outer-name
@@ -805,7 +810,9 @@ def test_signup_page(client):
 @patch("app.users_collection.find_one")
 @patch("app.check_password_hash")
 @patch("app.login_user")
-def test_login_success(mock_login_user, mock_check_password_hash, mock_find_one, client):
+def test_login_success(
+    mock_login_user, mock_check_password_hash, mock_find_one, client
+):
     """Test login successful"""
     # pylint: disable=redefined-outer-name
     mock_find_one.return_value = {
