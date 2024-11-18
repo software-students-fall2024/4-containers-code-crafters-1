@@ -9,10 +9,13 @@ python-dotenv = "*"
 google-cloud-speech = "*"
 google-auth = "*"
 flask = "*"
-pytest = "*"
 
 [dev-packages]
+pytest = "*"
 pylint = "*"
+black = "*"
+
+[dev-packages]
 
 [requires]
 python_version = "3.12"
