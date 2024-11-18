@@ -24,10 +24,6 @@ requests = "*"
 ffmpeg-python = "*"
 
 [dev-packages]
-pylint = "*"
-
-[scripts]
-lint = "pylint web-app"
 
 [requires]
 python_version = "3.12"

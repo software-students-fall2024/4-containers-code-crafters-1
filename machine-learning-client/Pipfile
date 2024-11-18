@@ -14,8 +14,5 @@ pytest = "*"
 [dev-packages]
 pylint = "*"
 
-[scripts]
-lint = "pylint speech_to_text.py"
-
 [requires]
 python_version = "3.12"
