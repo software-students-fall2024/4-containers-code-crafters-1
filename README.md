@@ -1,5 +1,6 @@
-![Test-ML]()
-![Test-Web]()
+![Lint-free](https://github.com/nyu-software-engineering/containerized-app-exercise/actions/workflows/lint.yml/badge.svg)
+![Test-ML](https://github.com/software-students-fall2024/4-containers-code-crafters-1/actions/workflows/python-ci.yml/badge.svg)
+![Test-Web](https://github.com/software-students-fall2024/4-containers-code-crafters-1/actions/workflows/web-app.yml/badge.svg)
 
 # Containerized App Exercise
 
@@ -111,5 +112,3 @@ pipenv shell
 * [Haoyi](https://github.com/hw2782)
 * [Keven](https://github.com/BlackCloud-K)
 * [Nicole](https://github.com/niki531)
-
-Build a containerized app that uses machine learning. See [instructions](./instructions.md) for details.
