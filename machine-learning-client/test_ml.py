@@ -1,36 +1,42 @@
+'''test machine learning client'''
+from unittest.mock import patch, MagicMock
+import os
+import pytest
 from speech_to_text import get_google_cloud_credentials
 from speech_to_text import transcribe_file
-from speech_to_text import transcribe
 from speech_to_text import app
-import os
-import json
-import pytest
-from unittest.mock import patch
-from unittest.mock import patch, MagicMock
 
-# test get credendtial function
 def test_missing_service_account_json():
+    '''test get credendtial function'''
     with patch.dict(os.environ, {}, clear=True):
-        with pytest.raises(EnvironmentError, match="Service account JSON not found in environment variables"):
+        with pytest.raises(
+            EnvironmentError,
+            match="Service account JSON not found in environment variables",
+        ):
             get_google_cloud_credentials()
 
-# test transcribe function
+
 @pytest.fixture
 def mock_credentials():
+    '''test transcribe function'''
     return MagicMock()
+
 
 @pytest.fixture
 def mock_response():
+    '''mock a response for testing'''
     alternative = MagicMock()
     alternative.transcript = "This is a test transcription."
     result = MagicMock()
     result.alternatives = [alternative]
-    mock_response = MagicMock()
-    mock_response.results = [result]
-    return mock_response
+    mock_res = MagicMock()
+    mock_res.results = [result]
+    return mock_res
+
 
 @patch("speech_to_text.speech.SpeechClient")
-def test_transcribe_file_success(mock_speech_client, mock_credentials, mock_response):
+def test_transcribe_file_success(mock_speech_client, mock_credentials, mock_response):# pylint: disable=redefined-outer-name
+    '''test transcribe file, should be successful'''
     mock_client_instance = mock_speech_client.return_value
     mock_client_instance.recognize.return_value = mock_response
 
@@ -43,19 +49,22 @@ def test_transcribe_file_success(mock_speech_client, mock_credentials, mock_resp
     assert result.transcript == "This is a test transcription."
     mock_speech_client.assert_called_once_with(credentials=mock_credentials)
     mock_client_instance.recognize.assert_called_once()
-
-    import os
     os.remove(audio_file)
 
-# test communication function
+
 @pytest.fixture
 def client():
-    with app.test_client() as client:
+    '''test communication function'''
+    with app.test_client() as client:# pylint: disable=redefined-outer-name
         yield client
+
 
 @patch("speech_to_text.get_google_cloud_credentials")
 @patch("speech_to_text.transcribe_file")
-def test_transcribe_success(mock_transcribe_file, mock_get_google_cloud_credentials, client):
+def test_transcribe_success(
+    mock_transcribe_file, mock_get_google_cloud_credentials, client
+):# pylint: disable=redefined-outer-name
+    '''test transcribe file function with interaction with web app, should be successful'''
     mock_get_google_cloud_credentials.return_value = MagicMock()
 
     mock_result = MagicMock()
@@ -68,7 +77,7 @@ def test_transcribe_success(mock_transcribe_file, mock_get_google_cloud_credenti
     assert response.status_code == 200
     assert response.get_json() == {
         "transcript": "hello may I ask what's your name",
-        "confidence": 0.9
+        "confidence": 0.9,
     }
 
 
