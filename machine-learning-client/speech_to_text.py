@@ -12,6 +12,7 @@ from flask import Flask, request, jsonify
 load_dotenv()
 app = Flask(__name__)
 
+
 def get_google_cloud_credentials():
     """Create a credential.
     Keyword arguments:
@@ -63,6 +64,7 @@ def transcribe_file(audio_file: str, credentials) -> speech.RecognizeResponse:
         print(f"Value error: {e}")
 
     return None
+
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
