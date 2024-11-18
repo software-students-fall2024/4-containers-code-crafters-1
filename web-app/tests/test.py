@@ -1,4 +1,5 @@
 """Test code for web-app"""
+
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 import pytest
@@ -24,11 +25,13 @@ from app import (
 #     with app.test_client() as client:
 #         yield client
 
+
 @pytest.fixture
 def client():
     """client fixture"""
     app.config["LOGIN_DISABLED"] = True
     return app.test_client()
+
 
 ### Test edit function ###
 @patch("app.get_exercise_in_todo")
@@ -277,6 +280,7 @@ def test_get_exercise(mock_exercises_collection):
     mock_exercises_collection.find_one.assert_called_once_with(
         {"_id": ObjectId(exercise_id)}
     )
+
 
 ### Test get_todo function ###
 @patch("app.current_user")
@@ -648,7 +652,7 @@ def test_get_matching_exercises_from_history_empty_history(
     mock_search_exercise_rigid, mock_get_search_history
 ):
     """Test get matching exercise from history"""
-    mock_get_search_history.return_value=[]
+    mock_get_search_history.return_value = []
     result = get_matching_exercises_from_history()
     assert not result, "Expected an empty list when search history is empty"
     mock_search_exercise_rigid.assert_not_called()  # search_exercise_rigid should not be called
@@ -662,7 +666,10 @@ def test_get_matching_exercises_from_history_with_matches(
     mock_search_exercise_rigid, mock_get_search_history
 ):
     """Test get matching exercise from history"""
-    mock_get_search_history.return_value=[{"content": "exercise1"}, {"content": "exercise2"}]
+    mock_get_search_history.return_value = [
+        {"content": "exercise1"},
+        {"content": "exercise2"},
+    ]
     # search_exercise_rigid to return specific results for each content name
     mock_search_exercise_rigid.side_effect = lambda name: [{"name": f"matching_{name}"}]
     result = get_matching_exercises_from_history()
@@ -675,15 +682,16 @@ def test_get_matching_exercises_from_history_with_matches(
     mock_search_exercise_rigid.assert_any_call("exercise2")
 
 
-@patch(
-    "app.get_search_history"
-)
+@patch("app.get_search_history")
 @patch("app.search_exercise_rigid")
 def test_get_matching_exercises_from_history_with_partial_matches(
     mock_search_exercise_rigid, mock_get_search_history
 ):
     """Test get matching exercise from history with partial match"""
-    mock_get_search_history.return_value=[{"content": "exercise1"}, {"content": "exercise2"}]
+    mock_get_search_history.return_value = [
+        {"content": "exercise1"},
+        {"content": "exercise2"},
+    ]
     # Mock search_exercise_rigid to return an empty list
     mock_search_exercise_rigid.side_effect = lambda name: (
         [{"name": "matching_exercise1"}] if name == "exercise1" else []
@@ -731,10 +739,7 @@ def test_register_existing_username(mock_find_one):
 @patch("app.todo_collection.insert_one")
 @patch("app.generate_password_hash")
 def test_register_successful(
-    mock_generate_password_hash,
-    mock_insert_todo,
-    mock_insert_user,
-    mock_find_one
+    mock_generate_password_hash, mock_insert_todo, mock_insert_user, mock_find_one
 ):
     """Test register successful"""
     mock_find_one.return_value = None
@@ -786,9 +791,7 @@ def test_signup_page():
 @patch("app.users_collection.find_one")
 @patch("app.check_password_hash")
 @patch("app.login_user")
-def test_login_success(
-    mock_login_user, mock_check_password_hash, mock_find_one
-):
+def test_login_success(mock_login_user, mock_check_password_hash, mock_find_one):
     """Test login successful"""
     mock_find_one.return_value = {
         "_id": "mock_user_id",

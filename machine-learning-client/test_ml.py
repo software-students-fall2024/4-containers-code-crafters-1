@@ -1,4 +1,5 @@
-'''test machine learning client'''
+"""test machine learning client"""
+
 from unittest.mock import patch, MagicMock
 import os
 import pytest
@@ -6,8 +7,9 @@ from speech_to_text import get_google_cloud_credentials
 from speech_to_text import transcribe_file
 from speech_to_text import app
 
+
 def test_missing_service_account_json():
-    '''test get credendtial function'''
+    """test get credendtial function"""
     with patch.dict(os.environ, {}, clear=True):
         with pytest.raises(
             EnvironmentError,
@@ -18,13 +20,13 @@ def test_missing_service_account_json():
 
 @pytest.fixture
 def mock_credentials():
-    '''test transcribe function'''
+    """test transcribe function"""
     return MagicMock()
 
 
 @pytest.fixture
 def mock_response():
-    '''mock a response for testing'''
+    """mock a response for testing"""
     alternative = MagicMock()
     alternative.transcript = "This is a test transcription."
     result = MagicMock()
@@ -35,8 +37,10 @@ def mock_response():
 
 
 @patch("speech_to_text.speech.SpeechClient")
-def test_transcribe_file_success(mock_speech_client, mock_credentials, mock_response):# pylint: disable=redefined-outer-name
-    '''test transcribe file, should be successful'''
+def test_transcribe_file_success(
+    mock_speech_client, mock_credentials, mock_response
+):  # pylint: disable=redefined-outer-name
+    """test transcribe file, should be successful"""
     mock_client_instance = mock_speech_client.return_value
     mock_client_instance.recognize.return_value = mock_response
 
@@ -54,8 +58,8 @@ def test_transcribe_file_success(mock_speech_client, mock_credentials, mock_resp
 
 @pytest.fixture
 def client():
-    '''test communication function'''
-    with app.test_client() as client:# pylint: disable=redefined-outer-name
+    """test communication function"""
+    with app.test_client() as client:  # pylint: disable=redefined-outer-name
         yield client
 
 
@@ -63,8 +67,8 @@ def client():
 @patch("speech_to_text.transcribe_file")
 def test_transcribe_success(
     mock_transcribe_file, mock_get_google_cloud_credentials, client
-):# pylint: disable=redefined-outer-name
-    '''test transcribe file function with interaction with web app, should be successful'''
+):  # pylint: disable=redefined-outer-name
+    """test transcribe file function with interaction with web app, should be successful"""
     mock_get_google_cloud_credentials.return_value = MagicMock()
 
     mock_result = MagicMock()
