@@ -50,6 +50,7 @@ def transcribe_file(audio_file: str, credentials) -> speech.RecognizeResponse:
 def transcribe():
     data = request.json
     audio_file = data.get("audio_file")
+    print(f"Received audio file path: {audio_file}")
 
     if not audio_file:
         return jsonify({"error": "Audio file path is required"}), 400
@@ -67,10 +68,10 @@ def transcribe():
 
 
 if __name__ == '__main__':
-    credentials = get_google_cloud_credentials()
-    res = transcribe_file("./machine-learning-client/recording.wav", credentials)
-    print(res)
-    # app.run(host='0.0.0.0', port=8080)
+    # credentials = get_google_cloud_credentials()
+    # res = transcribe_file("./machine-learning-client/recording.wav", credentials)
+    # print(res)
+    app.run(host='0.0.0.0', port=8080)
 
 
 '''

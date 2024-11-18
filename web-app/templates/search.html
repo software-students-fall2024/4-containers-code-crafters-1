@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Search Exercises Page</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style1.css') }}">
+
 </head>
 <body>
 
@@ -91,60 +92,67 @@
 
 
         
-        let mediaRecorder;
-        let audioChunks = [];
+    let mediaRecorder;
+    let audioChunks = [];
 
-        document.getElementById('start-recording-btn').addEventListener('click', async () => {
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
+    // Start recording
+    document.getElementById('start-recording-btn').addEventListener('click', async () => {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
 
-                    mediaRecorder.ondataavailable = (event) => {
-                        audioChunks.push(event.data);
-                    };
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
 
-                    mediaRecorder.onstop = async () => {
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                        const formData = new FormData();
-                        formData.append('audio', audioBlob, 'recording.wav');
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob, 'recording.wav');
 
-                        // Send the audio file to the server
-                        try {
-                            const response = await fetch('/upload-audio', {
-                                method: 'POST',
-                                body: formData,
-                            });
-                            const result = await response.json();
-                            console.log('Transcription result:', result);
-                            alert(`Transcription: ${result.transcription}`);
-                        } catch (error) {
-                            console.error('Error uploading audio:', error);
-                            alert('Failed to upload the audio for transcription.');
+                    // Send the audio file to the server
+                    try {
+                        const response = await fetch('/upload-audio', {
+                            method: 'POST',
+                            body: formData,
+                        });
+                        const result = await response.json();
+                        
+                        // 将转录文本填入搜索框
+                        if (result.transcription) {
+                            document.getElementById('query').value = result.transcription;
+                        } else {
+                            alert('No transcription returned');
                         }
+                    } catch (error) {
+                        console.error('Error uploading audio:', error);
+                        alert('Failed to upload the audio for transcription.');
+                    }
 
-                        // Reset audioChunks for next recording
-                        audioChunks = [];
-                    };
+                    // Reset audioChunks for next recording
+                    audioChunks = [];
+                };
 
-                    mediaRecorder.start();
-                    document.getElementById('start-recording-btn').disabled = true;
-                    document.getElementById('stop-recording-btn').disabled = false;
-                } catch (error) {
-                    console.error('Error accessing the microphone:', error);
-                }
-            } else {
-                alert('Your browser does not support audio recording.');
+                mediaRecorder.start();
+                document.getElementById('start-recording-btn').disabled = true;
+                document.getElementById('stop-recording-btn').disabled = false;
+            } catch (error) {
+                console.error('Error accessing the microphone:', error);
             }
-        });
+        } else {
+            alert('Your browser does not support audio recording.');
+        }
+    });
 
-        document.getElementById('stop-recording-btn').addEventListener('click', () => {
-            if (mediaRecorder) {
-                mediaRecorder.stop();
-                document.getElementById('start-recording-btn').disabled = false;
-                document.getElementById('stop-recording-btn').disabled = true;
-            }
-        });
+    // Stop recording
+    document.getElementById('stop-recording-btn').addEventListener('click', () => {
+        if (mediaRecorder) {
+            mediaRecorder.stop();
+            document.getElementById('start-recording-btn').disabled = false;
+            document.getElementById('stop-recording-btn').disabled = true;
+        }
+    });
     </script>
 </body>
 </html>
