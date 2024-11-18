@@ -1,3 +1,4 @@
+"""Test code for web-app"""
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 import pytest
@@ -23,16 +24,16 @@ from app import (
 #     with app.test_client() as client:
 #         yield client
 
-
 @pytest.fixture
 def client():
+    """client fixture"""
     app.config["LOGIN_DISABLED"] = True
     return app.test_client()
 
-
 ### Test edit function ###
 @patch("app.get_exercise_in_todo")
-def test_edit_get_route(mock_get_exercise_in_todo, client):
+def test_edit_get_route(mock_get_exercise_in_todo):
+    """Test edit get route"""
     with app.app_context():
         mock_get_exercise_in_todo.return_value = {
             "exercise_todo_id": "123",
@@ -48,7 +49,8 @@ def test_edit_get_route(mock_get_exercise_in_todo, client):
 
 @patch("app.edit_exercise")
 @patch("app.get_exercise_in_todo")
-def test_edit_route(mock_get_exercise_in_todo, mock_edit_exercise, client):
+def test_edit_route(mock_get_exercise_in_todo, mock_edit_exercise):
+    """Test edit route"""
     with app.app_context():
         mock_get_exercise_in_todo.return_value = {
             "exercise_todo_id": "123",
@@ -86,7 +88,8 @@ def test_edit_route(mock_get_exercise_in_todo, mock_edit_exercise, client):
 @patch("app.search_exercise")
 @patch("app.add_search_history")
 @patch("app.get_matching_exercises_from_history")
-def test_search_route(mock_get_history, mock_add_history, mock_search_exercise, client):
+def test_search_route(mock_get_history, mock_add_history, mock_search_exercise):
+    """Test search route"""
     with app.app_context():
         mock_get_history.return_value = [
             {"_id": "1", "name": "Push Up"},
@@ -121,7 +124,8 @@ def test_search_route(mock_get_history, mock_add_history, mock_search_exercise, 
 
 ### Test add function ###
 @patch("app.add_todo")
-def test_add_exercise_route(mock_add_todo, client):
+def test_add_exercise_route(mock_add_todo):
+    """Test add exercise route"""
     with app.app_context():
         # add successful
         mock_add_todo.return_value = True
@@ -148,7 +152,8 @@ def test_add_exercise_route(mock_add_todo, client):
         mock_add_todo.assert_called_once_with("456")
 
 
-def test_add_route_with_results_in_session(client):
+def test_add_route_with_results_in_session():
+    """Test add route with results"""
     with app.app_context():
         with client.session_transaction() as session:
             session["results"] = [
@@ -163,7 +168,8 @@ def test_add_route_with_results_in_session(client):
         assert b"const exercisesLength = 2" in response.data
 
 
-def test_add_route_empty_session(client):
+def test_add_route_empty_session():
+    """Test add route with empty session"""
     with app.app_context():
         with client.session_transaction() as session:
             session.pop("results", None)
@@ -176,7 +182,8 @@ def test_add_route_empty_session(client):
 
 ### Test delete route ###
 @patch("app.get_todo")
-def test_delete_exercise_route(mock_get_todo, client):
+def test_delete_exercise_route(mock_get_todo):
+    """Test delete exercise route"""
     with app.app_context():
         mock_get_todo.return_value = [
             {"_id": "1", "name": "Push Up"},
@@ -191,7 +198,8 @@ def test_delete_exercise_route(mock_get_todo, client):
 
 ### Test delete exercise id function ###
 @patch("app.delete_todo")
-def test_delete_exercise_id_success(mock_delete_todo, client):
+def test_delete_exercise_id_success(mock_delete_todo):
+    """Test delete exercise id"""
     mock_delete_todo.return_value = True
 
     response = client.delete("/delete_exercise/123")
@@ -202,7 +210,8 @@ def test_delete_exercise_id_success(mock_delete_todo, client):
 
 
 @patch("app.delete_todo")
-def test_delete_exercise_id_failure(mock_delete_todo, client):
+def test_delete_exercise_id_failure(mock_delete_todo):
+    """Test delete exercise id fail"""
     mock_delete_todo.return_value = False
 
     response = client.delete("/delete_exercise/456")
@@ -214,6 +223,7 @@ def test_delete_exercise_id_failure(mock_delete_todo, client):
 ### Test search_exercise function ###
 @patch("app.exercises_collection")
 def test_search_exercise(mock_exercises_collection):
+    """Test search exercise"""
     mock_exercises = [
         {"workout_name": "Push Up"},
         {"workout_name": "Pull Up"},
@@ -233,6 +243,7 @@ def test_search_exercise(mock_exercises_collection):
 ### Test search_exercise_rigid function ###
 @patch("app.exercises_collection")
 def test_search_exercise_rigid(mock_exercises_collection):
+    """Test search exercise rigid"""
     mock_exercises_collection.find.return_value = [
         {"workout_name": "Push Up"},
         {"workout_name": "push up"},
@@ -254,6 +265,7 @@ def test_search_exercise_rigid(mock_exercises_collection):
 ### Test get_exercise function ###
 @patch("app.exercises_collection")
 def test_get_exercise(mock_exercises_collection):
+    """Test get exercise"""
     random_object_id = ObjectId()
     mock_exercise = {"_id": random_object_id, "workout_name": "Push Up"}
     mock_exercises_collection.find_one.return_value = mock_exercise
@@ -266,11 +278,11 @@ def test_get_exercise(mock_exercises_collection):
         {"_id": ObjectId(exercise_id)}
     )
 
-
 ### Test get_todo function ###
 @patch("app.current_user")
 @patch("app.todo_collection")
 def test_get_todo_with_todo_list(mock_todo_collection, mock_current_user):
+    """Test get todo from the todo list"""
     mock_current_user.id = "user123"
 
     mock_todo_list = {"user_id": "user123", "todo": ["task1", "task2", "task3"]}
@@ -285,6 +297,7 @@ def test_get_todo_with_todo_list(mock_todo_collection, mock_current_user):
 @patch("app.current_user")
 @patch("app.todo_collection")
 def test_get_todo_without_todo_list(mock_todo_collection, mock_current_user):
+    """Test get todo without todo list"""
     mock_current_user.id = "user123"
     mock_todo_collection.find_one.return_value = None
     result = get_todo()
@@ -295,6 +308,7 @@ def test_get_todo_without_todo_list(mock_todo_collection, mock_current_user):
 @patch("app.current_user")
 @patch("app.todo_collection")
 def test_get_todo_with_empty_todo_list(mock_todo_collection, mock_current_user):
+    """Test get todo with empty todo list"""
     mock_current_user.id = "user123"
 
     mock_todo_list = {"user_id": "user123"}
@@ -310,6 +324,7 @@ def test_get_todo_with_empty_todo_list(mock_todo_collection, mock_current_user):
 @patch("app.current_user")
 @patch("app.todo_collection")
 def test_delete_todo_success(mock_todo_collection, mock_current_user):
+    """Test delete todo successful"""
     mock_current_user.id = "user123"
 
     mock_result = MagicMock()
@@ -329,6 +344,7 @@ def test_delete_todo_success(mock_todo_collection, mock_current_user):
 @patch("app.current_user")
 @patch("app.todo_collection")
 def test_delete_todo_failure(mock_todo_collection, mock_current_user):
+    """Test delete todo fail"""
     mock_current_user.id = "user123"
 
     mock_result = MagicMock()
@@ -352,6 +368,7 @@ def test_delete_todo_failure(mock_todo_collection, mock_current_user):
 def test_add_todo_success(
     mock_todo_collection, mock_exercises_collection, mock_current_user
 ):
+    """Test add todo successful"""
     mock_current_user.id = "user123"
 
     random_object_id = ObjectId()
@@ -391,6 +408,7 @@ def test_add_todo_success(
 def test_add_todo_failure(
     mock_todo_collection, mock_exercises_collection, mock_current_user
 ):
+    """Test add todo fail"""
     mock_current_user.id = "user123"
 
     mock_exercises_collection.find_one.return_value = None
@@ -409,6 +427,7 @@ def test_add_todo_failure(
 @patch("app.current_user")
 @patch("app.todo_collection")
 def test_edit_exercise_success(mock_todo_collection, mock_current_user):
+    """Test edit exercise successful"""
     mock_current_user.id = "user123"
 
     mock_result = MagicMock()
@@ -437,6 +456,7 @@ def test_edit_exercise_success(mock_todo_collection, mock_current_user):
 @patch("app.current_user")
 @patch("app.todo_collection")
 def test_edit_exercise_no_fields_to_update(mock_todo_collection, mock_current_user):
+    """Test edit exercise with no update"""
     mock_current_user.id = "user123"
 
     exercise_todo_id = 1001
@@ -452,6 +472,7 @@ def test_edit_exercise_no_fields_to_update(mock_todo_collection, mock_current_us
 @patch("app.current_user")
 @patch("app.todo_collection")
 def test_edit_exercise_not_found(mock_todo_collection, mock_current_user):
+    """Test edit exercise with no result found"""
     mock_current_user.id = "user123"
 
     mock_result = MagicMock()
@@ -481,6 +502,7 @@ def test_edit_exercise_not_found(mock_todo_collection, mock_current_user):
 @patch("app.current_user")
 @patch("app.todo_collection")
 def test_get_exercise_in_todo_found(mock_todo_collection, mock_current_user):
+    """Test get exercise in todo"""
     mock_current_user.id = "user123"
 
     random_exercise_id_1 = ObjectId()
@@ -519,6 +541,7 @@ def test_get_exercise_in_todo_found(mock_todo_collection, mock_current_user):
 @patch("app.current_user")
 @patch("app.todo_collection")
 def test_get_exercise_in_todo_not_found(mock_todo_collection, mock_current_user):
+    """Test get exercise in todo with no results found"""
     mock_current_user.id = "user123"
 
     random_exercise_id_1 = ObjectId()
@@ -546,6 +569,7 @@ def test_get_exercise_in_todo_not_found(mock_todo_collection, mock_current_user)
 @patch("app.current_user")
 @patch("app.todo_collection")
 def test_get_exercise_in_todo_no_todo_item(mock_todo_collection, mock_current_user):
+    """Test get exercise in todo with no todo item"""
     mock_current_user.id = "user123"
 
     mock_todo_collection.find_one.return_value = None
@@ -562,6 +586,7 @@ def test_get_exercise_in_todo_no_todo_item(mock_todo_collection, mock_current_us
 ### Test get_instruction function ###
 @patch("app.exercises_collection")
 def test_get_instruction_with_instruction(mock_exercises_collection):
+    """Test get instructions with instruction"""
     random_exercise_id = ObjectId("507f1f77bcf86cd799439011")
     mock_exercise = {
         "_id": random_exercise_id,
@@ -584,6 +609,7 @@ def test_get_instruction_with_instruction(mock_exercises_collection):
 
 @patch("app.exercises_collection")
 def test_get_instruction_without_instruction(mock_exercises_collection):
+    """Test get instruction without instruction"""
     random_exercise_id = ObjectId("507f1f77bcf86cd799439011")
     mock_exercise = {"_id": random_exercise_id, "workout_name": "Push Up"}
     mock_exercises_collection.find_one.return_value = mock_exercise
@@ -602,6 +628,7 @@ def test_get_instruction_without_instruction(mock_exercises_collection):
 
 @patch("app.exercises_collection")
 def test_get_instruction_not_found(mock_exercises_collection):
+    """Test get instruction with no result found"""
     mock_exercises_collection.find_one.return_value = None
     random_exercise_id = ObjectId("507f1f77bcf86cd799439011")
 
@@ -620,6 +647,7 @@ def test_get_instruction_not_found(mock_exercises_collection):
 def test_get_matching_exercises_from_history_empty_history(
     mock_search_exercise_rigid, mock_get_search_history
 ):
+    """Test get matching exercise from history"""
     mock_get_search_history.return_value=[]
     result = get_matching_exercises_from_history()
     assert not result, "Expected an empty list when search history is empty"
@@ -633,6 +661,7 @@ def test_get_matching_exercises_from_history_empty_history(
 def test_get_matching_exercises_from_history_with_matches(
     mock_search_exercise_rigid, mock_get_search_history
 ):
+    """Test get matching exercise from history"""
     mock_get_search_history.return_value=[{"content": "exercise1"}, {"content": "exercise2"}]
     # search_exercise_rigid to return specific results for each content name
     mock_search_exercise_rigid.side_effect = lambda name: [{"name": f"matching_{name}"}]
@@ -653,6 +682,7 @@ def test_get_matching_exercises_from_history_with_matches(
 def test_get_matching_exercises_from_history_with_partial_matches(
     mock_search_exercise_rigid, mock_get_search_history
 ):
+    """Test get matching exercise from history with partial match"""
     mock_get_search_history.return_value=[{"content": "exercise1"}, {"content": "exercise2"}]
     # Mock search_exercise_rigid to return an empty list
     mock_search_exercise_rigid.side_effect = lambda name: (
@@ -669,7 +699,8 @@ def test_get_matching_exercises_from_history_with_partial_matches(
 
 
 ### Test register function ###
-def test_register_missing_username_password(client):
+def test_register_missing_username_password():
+    """Test register with missing username password"""
     # missing username
     response = client.post("/register", data={"password": "testpassword"})
     assert response.status_code == 400
@@ -683,7 +714,8 @@ def test_register_missing_username_password(client):
 
 # existing username
 @patch("app.users_collection.find_one")
-def test_register_existing_username(mock_find_one, client):
+def test_register_existing_username(mock_find_one):
+    """Test register with existing usernamepy"""
     mock_find_one.return_value = {"username": "testuser"}
 
     response = client.post(
@@ -702,9 +734,9 @@ def test_register_successful(
     mock_generate_password_hash,
     mock_insert_todo,
     mock_insert_user,
-    mock_find_one,
-    client,
+    mock_find_one
 ):
+    """Test register successful"""
     mock_find_one.return_value = None
     mock_generate_password_hash.return_value = "hashed_password"
     mock_insert_user.return_value.inserted_id = "mock_user_id"
@@ -735,14 +767,16 @@ def test_register_successful(
 
 
 ### Test login page function ###
-def test_login_page(client):
+def test_login_page():
+    """Test login page"""
     response = client.get("/login")
     assert response.status_code == 200
     assert b"Login" in response.data
 
 
 # sign up page
-def test_signup_page(client):
+def test_signup_page():
+    """Test signup page"""
     response = client.get("/register")
     assert response.status_code == 200
     assert b"Sign Up" in response.data
@@ -753,8 +787,9 @@ def test_signup_page(client):
 @patch("app.check_password_hash")
 @patch("app.login_user")
 def test_login_success(
-    mock_login_user, mock_check_password_hash, mock_find_one, client
+    mock_login_user, mock_check_password_hash, mock_find_one
 ):
+    """Test login successful"""
     mock_find_one.return_value = {
         "_id": "mock_user_id",
         "username": "testuser",
@@ -772,7 +807,8 @@ def test_login_success(
 
 # Invalid username
 @patch("app.users_collection.find_one")
-def test_login_invalid_username(mock_find_one, client):
+def test_login_invalid_username(mock_find_one):
+    """Test login with invalid username"""
     # user not found in the database
     mock_find_one.return_value = None
     response = client.post(
@@ -789,7 +825,8 @@ def test_login_invalid_username(mock_find_one, client):
 # Invalid password
 @patch("app.users_collection.find_one")
 @patch("app.check_password_hash")
-def test_login_invalid_password(mock_check_password_hash, mock_find_one, client):
+def test_login_invalid_password(mock_check_password_hash, mock_find_one):
+    """Test login with invalid password"""
     mock_find_one.return_value = {
         "_id": "mock_user_id",
         "username": "testuser",
@@ -811,6 +848,7 @@ def test_login_invalid_password(mock_check_password_hash, mock_find_one, client)
 @patch("app.current_user")
 @patch("app.search_history_collection")
 def test_add_search_history(mock_search_history_collection, mock_current_user):
+    """Test adding search history."""
     mock_current_user.id = "user123"
 
     content = "Test Search Content"
@@ -827,8 +865,8 @@ def test_add_search_history(mock_search_history_collection, mock_current_user):
 @patch("app.current_user")
 @patch("app.search_history_collection")
 def test_get_search_history(mock_search_history_collection, mock_current_user):
+    """Test getting search history"""
     mock_current_user.id = "user123"
-
     mock_results = [
         {
             "user_id": "user123",
@@ -854,7 +892,8 @@ def test_get_search_history(mock_search_history_collection, mock_current_user):
 
 
 @patch("app.get_exercise")
-def test_instructions_route(mock_get_exercise, client):
+def test_instructions_route(mock_get_exercise):
+    """Test instruction route."""
     mock_exercise = {
         "_id": "exercise123",
         "workout_name": "Push Up",
