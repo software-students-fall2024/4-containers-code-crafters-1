@@ -231,7 +231,6 @@ def test_delete_exercise_id_failure(mock_delete_todo, client):
     assert b"Failed to delete" in response.data
     mock_delete_todo.assert_called_once_with(456)
 
-'''
 ### Test search_exercise function ###
 @patch("app.exercises_collection")
 def test_search_exercise(mock_exercises_collection):
@@ -272,7 +271,6 @@ def test_search_exercise_rigid(mock_exercises_collection):
     mock_exercises_collection.find.assert_called_once_with(
         {"workout_name": {"$regex": "^Push Up$", "$options": "i"}}
     )
-'''
 
 ### Test get_exercise function ###
 @patch("app.exercises_collection")
