@@ -17,10 +17,12 @@ def test_missing_service_account_json():
         ):
             get_google_cloud_credentials()
 
+
 @pytest.fixture
 def mock_credentials():
     """test transcribe function"""
     return MagicMock()
+
 
 @pytest.fixture
 def mock_response():
@@ -35,13 +37,9 @@ def mock_response():
 
 
 @patch("speech_to_text.speech.SpeechClient")
-<<<<<<< HEAD
 def test_transcribe_file_success(
     mock_speech_client, mock_credentials, mock_response
 ):  # pylint: disable=redefined-outer-name
-=======
-def test_transcribe_file_success(mock_speech_client, mock_credentials, mock_response):# pylint: disable=redefined-outer-name
->>>>>>> f1f22ed2b7bddf716d1594c6273ba3b7535bde8f
     """test transcribe file, should be successful"""
     mock_client_instance = mock_speech_client.return_value
     mock_client_instance.recognize.return_value = mock_response
@@ -57,14 +55,11 @@ def test_transcribe_file_success(mock_speech_client, mock_credentials, mock_resp
     mock_client_instance.recognize.assert_called_once()
     os.remove(audio_file)
 
+
 @pytest.fixture
 def client():
     """test communication function"""
-<<<<<<< HEAD
     with app.test_client() as client:  # pylint: disable=redefined-outer-name
-=======
-    with app.test_client() as client:# pylint: disable=redefined-outer-name
->>>>>>> f1f22ed2b7bddf716d1594c6273ba3b7535bde8f
         yield client
 
 
@@ -72,11 +67,7 @@ def client():
 @patch("speech_to_text.transcribe_file")
 def test_transcribe_success(
     mock_transcribe_file, mock_get_google_cloud_credentials, client
-<<<<<<< HEAD
 ):  # pylint: disable=redefined-outer-name
-=======
-):# pylint: disable=redefined-outer-name
->>>>>>> f1f22ed2b7bddf716d1594c6273ba3b7535bde8f
     """test transcribe file function with interaction with web app, should be successful"""
     mock_get_google_cloud_credentials.return_value = MagicMock()
 
@@ -92,6 +83,7 @@ def test_transcribe_success(
         "transcript": "hello may I ask what's your name",
         "confidence": 0.9,
     }
+
 
 if __name__ == "__main__":
     pytest.main()
