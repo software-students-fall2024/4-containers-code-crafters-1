@@ -22,27 +22,10 @@ requests = "*"
 ffmpeg-python = "*"
 pylint = "*"
 black = "*"
-flask = "*"
-python-dotenv = "*"
-pymongo = "*"
-certifi = "*"
-blinker = "*"
-click = "*"
-flask-debugtoolbar = "*"
-flask-login = "*"
-itsdangerous = "*"
-jinja2 = "*"
-markupsafe = "*"
-werkzeug = "*"
-dnspython = "*"
-bson = "*"
-requests = "*"
-ffmpeg-python = "*"
 
 [dev-packages]
 pytest = "*"
 pylint = "*"
-black = "*"
 
 [dev-packages]
 
