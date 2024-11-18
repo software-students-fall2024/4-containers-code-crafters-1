@@ -25,6 +25,7 @@ ffmpeg-python = "*"
 pytest = "*"
 pylint = "*"
 black = "*"
+pytest-cov = "*"
 
 [requires]
 python_version = "3.12"
