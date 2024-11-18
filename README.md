@@ -4,9 +4,9 @@
 
 # Containerized App Exercise
 
-# Project Name
+# Exercise Tracker
 
-[Short description.]
+This app is a comprehensive fitness tracker that empowers users at all fitness levels to create personalized workout plans, log exercise details.  The user can speak with the app, which can recognize the user's speech and then search for exercises or edit exercises logs based on the spoken input. 
 
 ## Setup Instructions
 
