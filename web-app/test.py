@@ -1,11 +1,8 @@
-import pytest
-from unittest.mock import patch, MagicMock
-from bson import ObjectId
 from datetime import datetime
-from flask import Flask
-from flask_login import FlaskLoginClient, login_user
+from unittest.mock import patch, MagicMock
+import pytest
+from bson import ObjectId
 from app import (
-    User,
     app,
     search_exercise,
     get_exercise,
@@ -19,10 +16,7 @@ from app import (
     get_matching_exercises_from_history,
     add_search_history,
     get_search_history,
-    upload_audio,
-    edit,
 )
-from io import BytesIO
 
 # @pytest.fixture
 # def client():
@@ -621,24 +615,25 @@ def test_get_instruction_not_found(mock_exercises_collection):
 
 
 ### Test get_matching_exercises_from_history function ###
-@patch("app.get_search_history", return_value=[])
+@patch("app.get_search_history")
 @patch("app.search_exercise_rigid")
 def test_get_matching_exercises_from_history_empty_history(
     mock_search_exercise_rigid, mock_get_search_history
 ):
+    mock_get_search_history.return_value=[]
     result = get_matching_exercises_from_history()
-    assert result == [], "Expected an empty list when search history is empty"
+    assert not result, "Expected an empty list when search history is empty"
     mock_search_exercise_rigid.assert_not_called()  # search_exercise_rigid should not be called
 
 
 @patch(
     "app.get_search_history",
-    return_value=[{"content": "exercise1"}, {"content": "exercise2"}],
 )
 @patch("app.search_exercise_rigid")
 def test_get_matching_exercises_from_history_with_matches(
     mock_search_exercise_rigid, mock_get_search_history
 ):
+    mock_get_search_history.return_value=[{"content": "exercise1"}, {"content": "exercise2"}]
     # search_exercise_rigid to return specific results for each content name
     mock_search_exercise_rigid.side_effect = lambda name: [{"name": f"matching_{name}"}]
     result = get_matching_exercises_from_history()
@@ -652,13 +647,13 @@ def test_get_matching_exercises_from_history_with_matches(
 
 
 @patch(
-    "app.get_search_history",
-    return_value=[{"content": "exercise1"}, {"content": "exercise2"}],
+    "app.get_search_history"
 )
 @patch("app.search_exercise_rigid")
 def test_get_matching_exercises_from_history_with_partial_matches(
     mock_search_exercise_rigid, mock_get_search_history
 ):
+    mock_get_search_history.return_value=[{"content": "exercise1"}, {"content": "exercise2"}]
     # Mock search_exercise_rigid to return an empty list
     mock_search_exercise_rigid.side_effect = lambda name: (
         [{"name": "matching_exercise1"}] if name == "exercise1" else []

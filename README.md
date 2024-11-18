@@ -4,7 +4,7 @@
 
 # Containerized App Exercise
 
-# Exercise Tracker
+# Fitness Tracker
 
 This app is a comprehensive fitness tracker that empowers users at all fitness levels to create personalized workout plans, log exercise details.  The user can speak with the app, which can recognize the user's speech and then search for exercises or edit exercises logs based on the spoken input. 
 
@@ -13,8 +13,8 @@ This app is a comprehensive fitness tracker that empowers users at all fitness l
 ### 1. Clone the Repository
 
 ```
-git clone https://github.com/software-students-fall2024/4-containers-trackly.git
-cd 4-containers-trackly
+git clone https://github.com/software-students-fall2024/4-containers-code-crafters-1.git
+cd 4-containers-code-crafters-1
 ```
 
 ### 2. Install pipenv
