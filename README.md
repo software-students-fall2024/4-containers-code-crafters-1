@@ -1,6 +1,6 @@
 ![Lint-free](https://github.com/nyu-software-engineering/containerized-app-exercise/actions/workflows/lint.yml/badge.svg)
 ![Test-ML]()
-![Test-Web]()
+![Test-Web](https://github.com/software-students-fall2024/4-containers-code-crafters-1/actions/workflows/web-app.yml/badge.svg)
 
 # Containerized App Exercise
 
