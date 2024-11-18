@@ -9,8 +9,6 @@ google-cloud-speech = "*"
 google-auth = "*"
 flask = "*"
 pytest = "*"
-
-[dev-packages]
 pylint = "*"
 
 [requires]
