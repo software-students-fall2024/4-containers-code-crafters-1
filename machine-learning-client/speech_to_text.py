@@ -1,3 +1,7 @@
+"""
+This module provides functions for speech-to-text transcription using Google Cloud Speech API.
+"""
+
 import os
 import json
 from dotenv import load_dotenv
@@ -10,6 +14,12 @@ app = Flask(__name__)
 
 
 def get_google_cloud_credentials():
+    """Create a credential.
+    
+    Keyword arguments:
+    argument -- None
+    Return: credentials
+    """
     service_account_json = os.getenv("GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON")
     if not service_account_json:
         raise EnvironmentError(
@@ -24,6 +34,12 @@ def get_google_cloud_credentials():
 
 
 def transcribe_file(audio_file: str, credentials) -> speech.RecognizeResponse:
+    """Transcribe the audio to the text.
+    
+    Keyword arguments:
+    argument -- adress of the audio file, credential.
+    Return: Transcription of the audio file.
+    """
     try:
         client = speech.SpeechClient(credentials=credentials)
         # print(f"Reading audio file: {audio_file}")
@@ -44,12 +60,22 @@ def transcribe_file(audio_file: str, credentials) -> speech.RecognizeResponse:
 
         return response.results[0].alternatives[0]
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    except FileNotFoundError as e:
+        print(f"File not found: {e}")
+    except ValueError as e:
+        print(f"Value error: {e}")
+
+    return None
 
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
+    """Communicate between web app and ml client.
+    
+    Keyword arguments:
+    argument -- None
+    Return: Transcription of the audio file.
+    """
     data = request.json
     audio_file = data.get("audio_file")
     print(f"Received audio file path: {audio_file}")
