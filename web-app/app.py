@@ -1,41 +1,35 @@
+"""
+This module implements a Flask web application for a fitness tracker, including user authentication,
+exercise management, and integration with a speech-to-text service for voice commands.
+"""
+
 import os
-from flask import (
-    Flask,
-    request,
-    redirect,
-    url_for,
-    flash,
-    render_template,
-    jsonify,
-    session,
-)
+import re
+import subprocess
+from datetime import datetime
+
+from flask import Flask, request, redirect, url_for, render_template, jsonify, session
 from dotenv import load_dotenv
 from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
 from bson import ObjectId
 import certifi
 from flask_login import (
-    LoginManager,
-    UserMixin,
-    login_user,
-    login_required,
-    logout_user,
-    current_user,
+    LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 )
+
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
-from werkzeug.utils import secure_filename
 import requests
-import re
 
 load_dotenv()
 
-mongo_uri = os.getenv("MONGO_URI")
+mongo_uri = os.getenv('MONGO_URI')
 
 app = Flask(__name__)
 app.secret_key = os.urandom(13)
 
-UPLOAD_FOLDER = "uploads"
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+UPLOAD_FOLDER = 'uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -43,23 +37,25 @@ if not os.path.exists(UPLOAD_FOLDER):
 client = MongoClient(mongo_uri, tls=True, tlsCAFile=certifi.where())
 
 try:
-    client.admin.command("ping")
+    client.admin.command('ping')
     print("Successfully connected to MongoDB!")
-except Exception as e:
+except ConnectionFailure as e:
     print(f"Failed to connect to MongoDB: {e}")
 
-db = client["fitness_db"]
-todo_collection = db["todo"]
-exercises_collection = db["exercises"]
-users_collection = db["users"]
-search_history_collection = db["search_history"]
+db = client['fitness_db']
+todo_collection = db['todo']
+exercises_collection = db['exercises']
+users_collection = db['users']
+search_history_collection = db['search_history']
 
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = "login"
+login_manager.login_view = 'login'
 
 
 class User(UserMixin):
+    """User class for Flask-Login authentication."""
+
     def __init__(self, user_id, username, password):
         self.id = user_id
         self.username = username
@@ -67,155 +63,173 @@ class User(UserMixin):
 
     @staticmethod
     def get(user_id):
+        """Retrieve a User object from the database by user_id."""
         user_data = users_collection.find_one({"_id": ObjectId(user_id)})
         if user_data:
-            return User(
-                str(user_data["_id"]), user_data["username"], user_data["password"]
-            )
+            return User(str(user_data['_id']), user_data['username'], user_data['password'])
         return None
 
 
 def normalize_text(text: str) -> str:
-
-    text = re.sub(r"[\s\-]", "", text)
+    """
+    Takes a string as input and removes all spaces and hyphens.
+    Converts the result to lowercase for consistent matching and searching.
+    """
+    text = re.sub(r'[\s\-]', '', text)
     return text.lower()
 
 
 def search_exercise(query: str):
-
+    """
+    Accepts a search query from the user.
+    Searches the database for exercise names matching the query,
+    ignoring case, spaces, and hyphens.
+    """
     normalized_query = normalize_text(query)
 
-    exercises = exercises_collection.find(
-        {
-            "$expr": {
-                "$regexMatch": {
-                    "input": {
-                        "$replaceAll": {
-                            "input": {
-                                "$replaceAll": {
-                                    "input": "$workout_name",
-                                    "find": "-",
-                                    "replacement": "",
-                                }
-                            },
-                            "find": " ",
-                            "replacement": "",
-                        }
-                    },
-                    "regex": normalized_query,
-                    "options": "i",
-                }
+    exercises = exercises_collection.find({
+        "$expr": {
+            "$regexMatch": {
+                "input": {
+                    "$replaceAll": {
+                        "input": {
+                            "$replaceAll": {
+                                "input": "$workout_name",
+                                "find": "-",
+                                "replacement": ""
+                            }
+                        },
+
+                        "find": " ",
+                        "replacement": ""
+                    }
+                },
+                "regex": normalized_query,
+                "options": "i"
             }
         }
-    )
+    })
 
     exercises_list = list(exercises)
     return exercises_list
 
 
 def search_exercise_rigid(query: str):
-
+    """
+    Accepts a strict search query from the user.
+    Performs a rigid match for exercise names in the database,
+    ignoring case, spaces, and hyphens.
+    """
     normalized_query = normalize_text(query)
 
-    exercises = exercises_collection.find(
-        {
-            "$expr": {
-                "$eq": [
-                    {
-                        "$toLower": {
+    exercises = exercises_collection.find({
+    "$expr": {
+        "$eq": [
+            {
+                "$toLower": {
+                    "$replaceAll": {
+                        "input": {
                             "$replaceAll": {
-                                "input": {
-                                    "$replaceAll": {
-                                        "input": "$workout_name",
-                                        "find": "-",
-                                        "replacement": "",
-                                    }
-                                },
-                                "find": " ",
-                                "replacement": "",
+                                "input": "$workout_name",
+                                "find": "-",
+                                "replacement": ""
                             }
-                        }
-                    },
-                    normalized_query,
-                ]
-            }
-        }
-    )
+                        },
+                        "find": " ",
+                        "replacement": ""
+                    }
+                }
+            },
+            normalized_query
+        ]
+    }
+})
+
 
     exercises_list = list(exercises)
     return exercises_list
 
 
 def get_exercise(exercise_id: str):
+    """
+    Retrieves the exercise record from the database that corresponds
+    to the provided exercise ID.
+    """
     return exercises_collection.find_one({"_id": ObjectId(exercise_id)})
 
 
 def get_todo():
+    """
+    Retrieves the current To-Do list for the logged-in user,
+    including all pending exercise items.
+    """
     todo_list = todo_collection.find_one({"user_id": current_user.id})
     if todo_list and "todo" in todo_list:
-        return todo_list["todo"]
+        return todo_list['todo']
     return []
 
 
 def delete_todo(exercise_todo_id: int):
+    """
+    Removes a specific exercise from the user's To-Do list by its ID.
+    Returns True if successful, False otherwise.
+    """
     result = todo_collection.update_one(
         {"user_id": current_user.id},
-        {"$pull": {"todo": {"exercise_todo_id": exercise_todo_id}}},
+        {"$pull": {"todo": {"exercise_todo_id": exercise_todo_id}}}
     )
-
-    if result.modified_count > 0:
-        # print(f"Exercise with To-Do ID {exercise_todo_id} deleted from To-Do List.")
-        return True
-    else:
-        # print(f"Exercise with To-Do ID {exercise_todo_id} not found.")
-        return False
+    return result.modified_count > 0
 
 
 def add_todo(exercise_id: str, working_time=None, reps=None, weight=None):
+    """
+    Adds a new exercise to the user's To-Do list.
+    Optional parameters include working time, repetitions, and weight.
+    """
     exercise = exercises_collection.find_one({"_id": ObjectId(exercise_id)})
 
     if exercise:
+        user_todo = todo_collection.find_one({"user_id": current_user.id})
 
-        todo = todo_collection.find_one({"user_id": current_user.id})
-
-        if todo and "todo" in todo:
-            max_id = max(
-                [item.get("exercise_todo_id", 999) for item in todo["todo"]],
-                default=999,
-            )
-            next_exercise_todo_id = max_id + 1
+        if user_todo and "todo" in user_todo:
+            next_exercise_todo_id = max(
+                (item.get("exercise_todo_id", 999) for item in user_todo["todo"]),
+                default=999
+            ) + 1
         else:
             next_exercise_todo_id = 1000
 
         exercise_item = {
             "exercise_todo_id": next_exercise_todo_id,
-            "exercise_id": exercise["_id"],
+            "exercise_id": exercise['_id'],
             "workout_name": exercise["workout_name"],
             "working_time": working_time,
             "reps": reps,
-            "weight": weight,
+            "weight": weight
         }
 
-        if todo:
+        if user_todo:
             result = todo_collection.update_one(
-                {"user_id": current_user.id}, {"$push": {"todo": exercise_item}}
+                {"user_id": current_user.id},
+                {"$push": {"todo": exercise_item}}
             )
             success = result.modified_count > 0
         else:
-            result = todo_collection.insert_one(
-                {"user_id": current_user.id, "todo": [exercise_item]}
-            )
+            result = todo_collection.insert_one({
+                "user_id": current_user.id,
+                "todo": [exercise_item]
+            })
             success = result.inserted_id is not None
 
-        if success:
-            return True
-        else:
-            return False
-    else:
-        return False
+        return success
+    return False
 
 
 def edit_exercise(exercise_todo_id, working_time, weight, reps):
+    """
+    Updates a specific exercise in the user's To-Do list
+    with new working time, weight, and repetitions.
+    """
     exercise_todo_id = int(exercise_todo_id)
     update_fields = {}
 
@@ -227,34 +241,37 @@ def edit_exercise(exercise_todo_id, working_time, weight, reps):
         update_fields["todo.$.weight"] = weight
 
     if not update_fields:
-        # print("No fields to update.")
         return False
 
     result = todo_collection.update_one(
         {"user_id": current_user.id, "todo.exercise_todo_id": exercise_todo_id},
-        {"$set": update_fields},
+        {"$set": update_fields}
     )
 
-    if result.matched_count > 0:
-        return True
-    else:
-        # print(f"Exercise with To-Do ID {exercise_todo_id} not found.")
-        return False
+    return result.matched_count > 0
 
 
 def add_search_history(content):
+    """
+    Logs a search query made by the user into the search history database.
+    Associates the search with the current user and records the timestamp.
+    """
     search_entry = {
         "user_id": current_user.id,
         "content": content,
-        "time": datetime.utcnow(),
+        "time": datetime.utcnow()
     }
-    result = search_history_collection.insert_one(search_entry)
+    search_history_collection.insert_one(search_entry)
 
 
-# test function needed #
 def get_search_history():
+    """
+    Retrieves the search history of the currently logged-in user,
+    sorted by the most recent searches.
+    """
     results = search_history_collection.find(
-        {"user_id": current_user.id}, {"_id": 0, "user_id": 1, "content": 1, "time": 1}
+        {"user_id": current_user.id},
+        {"_id": 0, "user_id": 1, "content": 1, "time": 1}
     ).sort("time", -1)
 
     history = list(results)
@@ -262,250 +279,287 @@ def get_search_history():
 
 
 def get_exercise_in_todo(exercise_todo_id: int):
+    """
+    Finds a specific exercise in the user's To-Do list
+    by its unique To-Do ID. Returns the exercise details if found.
+    """
     todo_item = todo_collection.find_one({"user_id": current_user.id})
 
     if not todo_item:
-        # print(f"Document with _id 1 not found.")
         return None
 
-    # print(f"todo_item found: {todo_item}")
-
-    for item in todo_item.get("todo", []):
-        # print(f"Checking item: {item}")
-        if item.get("exercise_todo_id") == int(exercise_todo_id):
+    for item in todo_item.get('todo', []):
+        if item.get('exercise_todo_id') == int(exercise_todo_id):
             return item
 
-    # print(f"Exercise with To-Do ID {exercise_todo_id} not found in the list.")
     return None
 
 
 def get_instruction(exercise_id: str):
+    """
+    Retrieves the instruction and workout name for the exercise with the given ID.
+    Returns a message if the exercise or instructions are not found.
+    """
     exercise = exercises_collection.find_one(
-        {"_id": ObjectId(exercise_id)}, {"instruction": 1, "workout_name": 1}
+        {"_id": ObjectId(exercise_id)},
+        {"instruction": 1, "workout_name": 1}
     )
 
     if exercise:
-        if "instruction" in exercise:
-            return {
-                "workout_name": exercise.get("workout_name", "Unknown Workout"),
-                "instruction": exercise["instruction"],
-            }
-        else:
-            return {
-                "workout_name": exercise.get("workout_name", "Unknown Workout"),
-                "instruction": "No instructions available for this exercise.",
-            }
-    else:
-        return {"error": f"Exercise with ID {exercise_id} not found."}
+        return {
+            "workout_name": exercise.get("workout_name", "Unknown Workout"),
+            "instruction": exercise.get("instruction", "No instructions for this exercise.")
+        }
+    return {
+            "error": f"Exercise with ID {exercise_id} not found."
+        }
 
 
-# test function needed #
 def get_matching_exercises_from_history():
+    """
+    Fetches matching exercises from the user's search history.
+    Compares the history entries with rigid matches in the exercises collection.
+    """
     history = get_search_history()
-    # print('history is: ', history)
-
-    content_names = [entry["content"] for entry in history]
-    # print('content name is:', content_names)
+    content_names = [entry['content'] for entry in history]
 
     matching_exercises_list = []
     for name in content_names:
         matching_exercises = search_exercise_rigid(name)
         matching_exercises_list.extend(matching_exercises)
 
-    # print('matching exercises are:', matching_exercises_list)
     return matching_exercises_list
 
 
-@app.route("/")
+@app.route('/')
 def home():
-    return redirect(url_for("todo"))
+    """
+    Redirects the user to the To-Do page when accessing the root URL.
+    """
+    return redirect(url_for('todo'))
 
 
 @login_manager.user_loader
 def load_user(user_id):
+    """
+    Loads the user information from the database by their user ID.
+    Returns a User object or None if the user is not found.
+    """
     return User.get(user_id)
 
 
-@app.route("/register", methods=["POST"])
+@app.route('/register', methods=['POST'])
 def register():
-    username = request.form.get("username")
-    password = request.form.get("password")
+    """
+    Handles user registration. Accepts username and password, checks for duplicates,
+    and stores the hashed password and initial To-Do list in the database.
+    """
+    username = request.form.get('username')
+    password = request.form.get('password')
 
     if not username or not password:
-        return jsonify({"message": "Username and password are required!"}), 400
+        return jsonify({'message': 'Username and password are required!'}), 400
 
     if users_collection.find_one({"username": username}):
-        return jsonify({"message": "Username already exists!"}), 400
+        return jsonify({'message': 'Username already exists!'}), 400
 
-    hashed_password = generate_password_hash(password, method="pbkdf2:sha256")
+    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
 
     user_id = users_collection.insert_one(
-        {"username": username, "password": hashed_password}
-    ).inserted_id
+    {
+        "username": username,
+        "password": hashed_password
+    }
+).inserted_id
 
-    todo_collection.insert_one(
-        {"user_id": str(user_id), "date": datetime.utcnow(), "todo": []}
-    )
+    todo_collection.insert_one({
+        "user_id": str(user_id),
+        "date": datetime.utcnow(),
+        "todo": []
+    })
 
-    return (
-        jsonify(
-            {"message": "Registration successful! Please log in.", "success": True}
-        ),
-        200,
-    )
+    return jsonify({'message': 'Registration successful! Please log in.', 'success': True}), 200
 
 
-@app.route("/login", methods=["GET"])
+@app.route('/login', methods=['GET'])
 def login_page():
-    return render_template("login.html")
+    """
+    Displays the login page for the user to enter credentials.
+    """
+    return render_template('login.html')
 
 
-@app.route("/register", methods=["GET"])
+@app.route('/register', methods=['GET'])
 def signup_page():
-    return render_template("signup.html")
+    """
+    Displays the registration page for new users to sign up.
+    """
+    return render_template('signup.html')
 
 
-@app.route("/login", methods=["POST"])
+@app.route('/login', methods=['POST'])
 def login():
-    username = request.form.get("username")
-    password = request.form.get("password")
+    """
+    Authenticates the user by verifying the username and password.
+    Logs in the user and starts a session if the credentials are valid.
+    """
+    username = request.form.get('username')
+    password = request.form.get('password')
 
     user_data = users_collection.find_one({"username": username})
 
-    if user_data and check_password_hash(user_data["password"], password):
-        user = User(str(user_data["_id"]), user_data["username"], user_data["password"])
+    if user_data and check_password_hash(user_data['password'], password):
+        user = User(str(user_data['_id']), user_data['username'], user_data['password'])
         login_user(user)
-        return jsonify({"message": "Login successful!", "success": True}), 200
-    else:
-        return (
-            jsonify({"message": "Invalid username or password!", "success": False}),
-            401,
-        )
+        return jsonify({'message': 'Login successful!', 'success': True}), 200
+    return jsonify({'message': 'Invalid username or password!', 'success': False}), 401
 
 
-@app.route("/logout")
+@app.route('/logout')
 @login_required
 def logout():
+    """
+    Logs out the currently authenticated user and redirects them to the login page.
+    """
     logout_user()
-    return redirect(url_for("login"))
+    return redirect(url_for('login'))
 
 
-@app.route("/search", methods=["POST", "GET"])
+@app.route('/search', methods=['POST', 'GET'])
 @login_required
 def search():
-    if request.method == "POST":
+    """
+    Provides search functionality for the user to find exercises.
+    Supports both new search queries and suggestions from search history.
+    """
+    if request.method == 'POST':
         query = request.form.get("query")
         if not query:
-            return jsonify({"message": "Search content cannot be empty."}), 400
+            return jsonify({'message': 'Search content cannot be empty.'}), 400
         results = search_exercise(query)
-        # printf('results are', results)
         if len(results) == 0:
-            return jsonify({"message": "Exercise was not found."}), 404
+            return jsonify({'message': 'Exercise was not found.'}), 404
 
         for result in results:
-            result["_id"] = str(result["_id"])
-        session["results"] = results
+            result['_id'] = str(result['_id'])
+        session['results'] = results
         add_search_history(query)
-        return redirect(url_for("add"))
+        return redirect(url_for('add'))
 
     exercises = get_matching_exercises_from_history()
-    # print('current result should be: ', exercises)
 
-    return render_template("search.html", exercises=exercises)
+    return render_template('search.html', exercises=exercises)
 
 
-@app.route("/todo")
+@app.route('/todo')
 @login_required
 def todo():
+    """
+    Displays the user's To-Do list with all the exercises and their details.
+    """
     exercises = get_todo()
-    return render_template("todo.html", exercises=exercises)
+    return render_template('todo.html', exercises=exercises)
 
 
-@app.route("/delete_exercise")
+@app.route('/delete_exercise')
 @login_required
 def delete_exercise():
+    """
+    Renders a page to allow the user to select and delete exercises from the To-Do list.
+    """
     exercises = get_todo()
-    return render_template("delete.html", exercises=exercises)
+    return render_template('delete.html', exercises=exercises)
 
 
-@app.route("/delete_exercise/<int:exercise_todo_id>", methods=["DELETE"])
+@app.route('/delete_exercise/<int:exercise_todo_id>', methods=['DELETE'])
 def delete_exercise_id(exercise_todo_id):
+    """
+    Deletes a specific exercise from the user's To-Do list using its ID.
+    Returns success or error messages.
+    """
     success = delete_todo(exercise_todo_id)
     if success:
-        return jsonify({"message": "Deleted successfully"}), 204
-    else:
-        return jsonify({"message": "Failed to delete"}), 404
+        return jsonify({'message': 'Deleted successfully'}), 204
+    return jsonify({'message': 'Failed to delete'}), 404
 
 
-@app.route("/add")
+@app.route('/add')
 @login_required
 def add():
-    if "results" in session:
-        exercises = session["results"]
-    else:
-        exercises = []
-
+    """
+    Displays a page where the user can add exercises to the To-Do list from search results.
+    """
+    exercises = session.get('results', [])
     return render_template(
-        "add.html", exercises=exercises, exercises_length=len(exercises)
-    )
+    'add.html',
+    exercises=exercises,
+    exercises_length=len(exercises)
+)
 
 
-@app.route("/add_exercise", methods=["POST"])
+
+@app.route('/add_exercise', methods=['POST'])
 @login_required
 def add_exercise():
-    exercise_id = request.args.get("exercise_id")
-
-    # print(f"Received request to add exercise with ID: {exercise_id}")
+    """
+    Adds a new exercise to the user's To-Do list based on its unique ID provided in the request.
+    """
+    exercise_id = request.args.get('exercise_id')
 
     if not exercise_id:
         print("No exercise ID provided")
-        return jsonify({"message": "Exercise ID is required"}), 400
+        return jsonify({'message': 'Exercise ID is required'}), 400
 
     success = add_todo(exercise_id)
 
     if success:
         print(f"Successfully added exercise with ID: {exercise_id}")
-        return jsonify({"message": "Added successfully"}), 200
-    else:
-        print(f"Failed to add exercise with ID: {exercise_id}")
-        return jsonify({"message": "Failed to add"}), 400
+        return jsonify({'message': 'Added successfully'}), 200
+    print(f"Failed to add exercise with ID: {exercise_id}")
+    return jsonify({'message': 'Failed to add'}), 400
 
 
-@app.route("/edit", methods=["GET", "POST"])
+@app.route('/edit', methods=['GET', 'POST'])
 @login_required
 def edit():
-    exercise_todo_id = request.args.get("exercise_todo_id")
+    """
+    Enables the user to edit an exercise's details in the To-Do list, such as time, reps, or weight.
+    """
+    exercise_todo_id = request.args.get('exercise_todo_id')
     exercise_in_todo = get_exercise_in_todo(exercise_todo_id)
 
-    if request.method == "POST":
-        working_time = request.form.get("working_time")
-        weight = request.form.get("weight")
-        reps = request.form.get("reps")
+    if request.method == 'POST':
+        working_time = request.form.get('working_time')
+        weight = request.form.get('weight')
+        reps = request.form.get('reps')
         success = edit_exercise(exercise_todo_id, working_time, weight, reps)
         if success:
-            return jsonify({"message": "Edited successfully"}), 200
-        else:
-            return jsonify({"message": "Failed to edit"}), 400
+            return jsonify({'message': 'Edited successfully'}), 200
+        return jsonify({'message': 'Failed to edit'}), 400
 
     return render_template(
-        "edit.html", exercise_todo_id=exercise_todo_id, exercise=exercise_in_todo
-    )
+    'edit.html',
+    exercise_todo_id=exercise_todo_id,
+    exercise=exercise_in_todo
+)
 
-
-@app.route("/instructions", methods=["GET"])
+@app.route('/instructions', methods=['GET'])
 def instructions():
-    exercise_id = request.args.get("exercise_id")
+    """
+    Fetches and displays detailed instructions for a specific exercise chosen by the user.
+    """
+    exercise_id = request.args.get('exercise_id')
     exercise = get_exercise(exercise_id)
 
-    return render_template("instructions.html", exercise=exercise)
-
-
-import subprocess
-import os
+    return render_template('instructions.html', exercise=exercise)
 
 
 @app.route("/upload-audio", methods=["POST"])
 def upload_audio():
+    """
+    Handles audio uploads. Converts the file to WAV format, sends it for transcription,
+    and returns the transcribed text to the client.
+    """
     if "audio" not in request.files:
         return jsonify({"error": "No audio file uploaded"}), 400
 
@@ -534,16 +588,21 @@ def upload_audio():
         return jsonify({"error": "Failed to convert audio file"}), 500
 
     transcription = call_speech_to_text_service(wav_file_path)
-
+    if not transcription:
+        return jsonify({"error": "Failed to transcribe audio"}), 500
     return jsonify({"transcription": transcription})
 
 
 def call_speech_to_text_service(file_path):
+    """
+    Sends the uploaded audio file to a remote speech-to-text service for transcription.
+    Returns the transcription or an error message if the service fails.
+    """
     url = "http://machine-learning-client:8080/transcribe"
     data = {"audio_file": file_path}
     headers = {"Content-Type": "application/json"}
     try:
-        response = requests.post(url, json=data, headers=headers)
+        response = requests.post(url, json=data, headers=headers, timeout=10)
         response.raise_for_status()
         return response.json().get("transcript", "No transcription returned")
     except requests.RequestException as e:
@@ -552,98 +611,108 @@ def call_speech_to_text_service(file_path):
 
 
 def parse_voice_command(transcription):
-
-    exercise_match = re.search(
-        r"exercise\s+['\"](.+?)['\"]", transcription, re.IGNORECASE
-    )
+    """
+    Parses the transcription to extract the exercise name, time duration,
+    number of groups, and weight. Returns a structured dictionary of the extracted data.
+    """
+    exercise_match = re.search(r'exercise\s+["\'](.+?)["\']', transcription, re.IGNORECASE)
     exercise_name = exercise_match.group(1) if exercise_match else None
 
-    time_match = re.search(
-        r"(\d+)\s*minutes?\s*(\d+)?\s*seconds?", transcription, re.IGNORECASE
-    )
-    time_params = (
-        {
-            "minutes": int(time_match.group(1)) if time_match else 0,
-            "seconds": (
-                int(time_match.group(2)) if time_match and time_match.group(2) else 0
-            ),
-        }
-        if time_match
-        else None
-    )
+    time_match = re.search(r'set the time at\s+(\d+)\s*minutes?', transcription, re.IGNORECASE)
+    time_params = {
+        "minutes": int(time_match.group(1))
+    } if time_match else None
+
+    groups_match = re.search(r'group of\s+(\d+)', transcription, re.IGNORECASE)
+    groups = int(groups_match.group(1)) if groups_match else None
+
+    weight_match = re.search(r'weight of\s+(\d+)', transcription, re.IGNORECASE)
+    weight = int(weight_match.group(1)) if weight_match else None
 
     if not exercise_name:
         print("Failed to parse exercise name from transcription.")
         return None
 
-    return {"exercise": exercise_name, "time": time_params}
+    return {
+        "exercise": exercise_name,
+        "time": time_params,
+        "groups": groups,
+        "weight": weight
+    }
 
 
-def get_latest_todo_id():
-
-    todo_list = get_todo()
-    if not todo_list:
-        return None
-    return max(
-        item["exercise_todo_id"] for item in todo_list if "exercise_todo_id" in item
-    )
-
-
-@app.route("/add_with_voice", methods=["POST"])
+@app.route('/process-audio', methods=['POST'])
 @login_required
-def add_with_voice():
-    if "audio" not in request.files:
-        return jsonify({"message": "No audio file provided!"}), 400
+def process_audio():
+    """
+    Processes uploaded audio. Converts it to WAV format, transcribes it to text,
+    extracts relevant exercise details, and updates the corresponding exercise in the To-Do list.
+    """
+    if 'audio' not in request.files:
+        return jsonify({"error": "No audio file uploaded"}), 400
 
-    audio_file = request.files["audio"]
-    filepath = os.path.join(app.config["UPLOAD_FOLDER"], audio_file.filename)
-    audio_file.save(filepath)
+    audio = request.files['audio']
+    original_file_path = os.path.join(app.config['UPLOAD_FOLDER'], audio.filename)
+    audio.save(original_file_path)
 
-    transcription = call_speech_to_text_service(filepath)
+    wav_file_path = os.path.splitext(original_file_path)[0] + '_converted.wav'
+    try:
+        subprocess.run(
+            ['ffmpeg', '-y', '-i', original_file_path, '-ar', '16000', '-ac', '1', wav_file_path],
+            check=True
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"Error converting audio to WAV: {e}")
+        return jsonify({"error": "Failed to convert audio file"}), 500
+
+    transcription = call_speech_to_text_service(wav_file_path)
     if not transcription:
-        return jsonify({"message": "Failed to transcribe audio!"}), 500
+        return jsonify({"error": "Failed to transcribe audio"}), 500
 
     parsed_data = parse_voice_command(transcription)
     if not parsed_data:
-        return jsonify({"message": "Failed to parse voice command!"}), 400
+        return jsonify({"error": "Failed to parse transcription"}), 400
 
     exercise_name = parsed_data.get("exercise")
     time_params = parsed_data.get("time")
+    groups = parsed_data.get("groups")
+    weight = parsed_data.get("weight")
 
-    exercises = search_exercise(exercise_name)
-    if not exercises:
-        return jsonify({"message": f'Exercise "{exercise_name}" not found!'}), 404
+    todo_list = get_todo()
+    matching_exercise = next(
+    (
+        item for item in todo_list
+        if normalize_text(item['workout_name']) == normalize_text(exercise_name)
+    ),
+    None
+)
 
-    exercise_id = str(exercises[0]["_id"])
 
-    success = add_todo(exercise_id)
-    if not success:
-        return jsonify({"message": "Failed to add exercise to To-Do list!"}), 500
+    if not matching_exercise:
+        return jsonify({
+    "error": f"Exercise '{exercise_name}' not found in To-Do list"
+    }), 404
 
-    if time_params:
-        exercise_todo_id = get_latest_todo_id()
-        if not exercise_todo_id:
-            return jsonify({"message": "Failed to retrieve latest To-Do item!"}), 500
 
-        edit_success = edit_exercise(
-            exercise_todo_id,
-            working_time=f"{time_params['minutes']}:{time_params['seconds']}",
-            weight=None,
-            reps=None,
-        )
-        if not edit_success:
-            return jsonify({"message": "Failed to update exercise time!"}), 500
-
-    return (
-        jsonify(
-            {
-                "message": "Exercise added and updated successfully!",
-                "exercise": exercise_name,
-                "time": time_params,
-            }
-        ),
-        200,
+    exercise_todo_id = matching_exercise["exercise_todo_id"]
+    working_time = f"{time_params['minutes']}:00" if time_params else None
+    edit_success = edit_exercise(
+        exercise_todo_id,
+        working_time=working_time,
+        weight=weight,
+        reps=groups
     )
+
+    if not edit_success:
+        return jsonify({"error": "Failed to update exercise"}), 500
+
+    return jsonify({
+        "message": "Exercise updated successfully",
+        "exercise": exercise_name,
+        "time": time_params,
+        "groups": groups,
+        "weight": weight
+    }), 200
 
 
 if __name__ == "__main__":
