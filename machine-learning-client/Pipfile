@@ -10,6 +10,9 @@ google-auth = "*"
 flask = "*"
 pytest = "*"
 pylint = "*"
+black = "*"
+
+[dev-packages]
 
 [requires]
 python_version = "3.12"
