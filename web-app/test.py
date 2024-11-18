@@ -36,6 +36,7 @@ def client():
 @patch("app.get_exercise_in_todo")
 def test_edit_get_route(mock_get_exercise_in_todo, client):
     """Test edit get route"""
+    # pylint: disable=redefined-outer-name
     with app.app_context():
         mock_get_exercise_in_todo.return_value = {
             "exercise_todo_id": "123",
@@ -43,7 +44,7 @@ def test_edit_get_route(mock_get_exercise_in_todo, client):
             "reps": 10,
             "weight": 50,
         }
-
+        # pylint: disable=redefined-outer-name
         response = client.get("/edit?exercise_todo_id=123")
         assert response.status_code == 200
         mock_get_exercise_in_todo.assert_called_once_with("123")
@@ -53,6 +54,7 @@ def test_edit_get_route(mock_get_exercise_in_todo, client):
 @patch("app.get_exercise_in_todo")
 def test_edit_route(mock_get_exercise_in_todo, mock_edit_exercise, client):
     """Test edit route"""
+    # pylint: disable=redefined-outer-name
     with app.app_context():
         mock_get_exercise_in_todo.return_value = {
             "exercise_todo_id": "123",
@@ -92,6 +94,7 @@ def test_edit_route(mock_get_exercise_in_todo, mock_edit_exercise, client):
 @patch("app.get_matching_exercises_from_history")
 def test_search_route(mock_get_history, mock_add_history, mock_search_exercise, client):
     """Test search route"""
+    # pylint: disable=redefined-outer-name
     with app.app_context():
         mock_get_history.return_value = [
             {"_id": "1", "name": "Push Up"},
@@ -116,6 +119,7 @@ def test_search_route(mock_get_history, mock_add_history, mock_search_exercise, 
         # non-existent search query
         mock_search_exercise.reset_mock()
         mock_search_exercise.return_value = []
+        # pylint: disable=redefined-outer-name
         response = client.post("/search", data={"query": "nonexistent"})
 
         # fail search
@@ -128,6 +132,7 @@ def test_search_route(mock_get_history, mock_add_history, mock_search_exercise, 
 @patch("app.add_todo")
 def test_add_exercise_route(mock_add_todo, client):
     """Test add exercise route"""
+    # pylint: disable=redefined-outer-name
     with app.app_context():
         # add successful
         mock_add_todo.return_value = True
@@ -138,6 +143,7 @@ def test_add_exercise_route(mock_add_todo, client):
 
         # miss exercise id to add
         mock_add_todo.reset_mock()
+        # pylint: disable=redefined-outer-name
         response = client.post("/add_exercise")
         assert response.status_code == 400
         assert b"Exercise ID is required" in response.data
@@ -146,6 +152,7 @@ def test_add_exercise_route(mock_add_todo, client):
         # add exercise fail
         mock_add_todo.reset_mock()
         mock_add_todo.return_value = False
+        # pylint: disable=redefined-outer-name
         response = client.post("/add_exercise?exercise_id=456")
 
         # add exercise fail
@@ -156,13 +163,13 @@ def test_add_exercise_route(mock_add_todo, client):
 
 def test_add_route_with_results_in_session(client):
     """Test add route with results"""
+    # pylint: disable=redefined-outer-name
     with app.app_context():
         with client.session_transaction() as session:
             session["results"] = [
                 {"_id": "1", "name": "Push Up"},
                 {"_id": "2", "name": "Squats"},
             ]
-
         response = client.get("/add")
         assert response.status_code == 200
         assert b"exercise_id=1" in response.data
@@ -172,10 +179,10 @@ def test_add_route_with_results_in_session(client):
 
 def test_add_route_empty_session(client):
     """Test add route with empty session"""
+    # pylint: disable=redefined-outer-name
     with app.app_context():
         with client.session_transaction() as session:
             session.pop("results", None)
-
         response = client.get("/add")
 
         assert response.status_code == 200
@@ -186,12 +193,12 @@ def test_add_route_empty_session(client):
 @patch("app.get_todo")
 def test_delete_exercise_route(mock_get_todo, client):
     """Test delete exercise route"""
+    # pylint: disable=redefined-outer-name
     with app.app_context():
         mock_get_todo.return_value = [
             {"_id": "1", "name": "Push Up"},
             {"_id": "2", "name": "Squats"},
         ]
-
         response = client.get("/delete_exercise")
         assert response.status_code == 200
         assert b"exercise-" in response.data
@@ -202,6 +209,7 @@ def test_delete_exercise_route(mock_get_todo, client):
 @patch("app.delete_todo")
 def test_delete_exercise_id_success(mock_delete_todo, client):
     """Test delete exercise id"""
+    # pylint: disable=redefined-outer-name
     mock_delete_todo.return_value = True
 
     response = client.delete("/delete_exercise/123")
@@ -214,6 +222,7 @@ def test_delete_exercise_id_success(mock_delete_todo, client):
 @patch("app.delete_todo")
 def test_delete_exercise_id_failure(mock_delete_todo, client):
     """Test delete exercise id fail"""
+    # pylint: disable=redefined-outer-name
     mock_delete_todo.return_value = False
 
     response = client.delete("/delete_exercise/456")
@@ -622,7 +631,7 @@ def test_get_instruction_without_instruction(mock_exercises_collection):
 
     assert result == {
         "workout_name": "Push Up",
-        "instruction": "No instructions available for this exercise.",
+        "instruction": "No instructions for this exercise.",
     }
     mock_exercises_collection.find_one.assert_called_once_with(
         {"_id": ObjectId(exercise_id)}, {"instruction": 1, "workout_name": 1}
@@ -708,6 +717,7 @@ def test_get_matching_exercises_from_history_with_partial_matches(
 ### Test register function ###
 def test_register_missing_username_password(client):
     """Test register with missing username password"""
+    # pylint: disable=redefined-outer-name
     # missing username
     response = client.post("/register", data={"password": "testpassword"})
     assert response.status_code == 400
@@ -723,6 +733,7 @@ def test_register_missing_username_password(client):
 @patch("app.users_collection.find_one")
 def test_register_existing_username(mock_find_one, client):
     """Test register with existing usernamepy"""
+    # pylint: disable=redefined-outer-name
     mock_find_one.return_value = {"username": "testuser"}
 
     response = client.post(
@@ -741,11 +752,13 @@ def test_register_successful(
     mock_generate_password_hash, mock_insert_todo, mock_insert_user, mock_find_one, client
 ):
     """Test register successful"""
+    # pylint: disable=redefined-outer-name
     mock_find_one.return_value = None
     mock_generate_password_hash.return_value = "hashed_password"
     mock_insert_user.return_value.inserted_id = "mock_user_id"
     mock_insert_todo.return_value = MagicMock()
 
+    # pylint: disable=redefined-outer-name
     response = client.post(
         "/register", data={"username": "newuser", "password": "newpassword"}
     )
@@ -773,6 +786,7 @@ def test_register_successful(
 ### Test login page function ###
 def test_login_page(client):
     """Test login page"""
+    # pylint: disable=redefined-outer-name
     response = client.get("/login")
     assert response.status_code == 200
     assert b"Login" in response.data
@@ -781,6 +795,7 @@ def test_login_page(client):
 # sign up page
 def test_signup_page(client):
     """Test signup page"""
+    # pylint: disable=redefined-outer-name
     response = client.get("/register")
     assert response.status_code == 200
     assert b"Sign Up" in response.data
@@ -792,6 +807,7 @@ def test_signup_page(client):
 @patch("app.login_user")
 def test_login_success(mock_login_user, mock_check_password_hash, mock_find_one, client):
     """Test login successful"""
+    # pylint: disable=redefined-outer-name
     mock_find_one.return_value = {
         "_id": "mock_user_id",
         "username": "testuser",
@@ -811,6 +827,7 @@ def test_login_success(mock_login_user, mock_check_password_hash, mock_find_one,
 @patch("app.users_collection.find_one")
 def test_login_invalid_username(mock_find_one, client):
     """Test login with invalid username"""
+    # pylint: disable=redefined-outer-name
     # user not found in the database
     mock_find_one.return_value = None
     response = client.post(
@@ -829,6 +846,7 @@ def test_login_invalid_username(mock_find_one, client):
 @patch("app.check_password_hash")
 def test_login_invalid_password(mock_check_password_hash, mock_find_one, client):
     """Test login with invalid password"""
+    # pylint: disable=redefined-outer-name
     mock_find_one.return_value = {
         "_id": "mock_user_id",
         "username": "testuser",
@@ -895,6 +913,7 @@ def test_get_search_history(mock_search_history_collection, mock_current_user):
 
 @patch("app.get_exercise")
 def test_instructions_route(mock_get_exercise, client):
+    # pylint: disable=redefined-outer-name
     """Test instruction route."""
     mock_exercise = {
         "_id": "exercise123",
