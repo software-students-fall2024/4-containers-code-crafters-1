@@ -20,9 +20,10 @@ dnspython = "==2.7.0"
 bson = "==0.5.10"
 requests = "*"
 ffmpeg-python = "*"
+pylint = "*"
+black = "*"
 
 [dev-packages]
-pylint = "*"
 
 [requires]
 python_version = "3.12"
