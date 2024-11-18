@@ -88,19 +88,31 @@ git clone https://github.com/software-students-fall2024/4-containers-code-crafte
 cd 4-containers-code-crafters-1
 ```
 
-### 2. Install pipenv
+### 2. Go to the directory that you want to set virtual environment for
+
+```
+cd web-app
+```
+
+or
+
+```
+cd machine-learning-client
+```
+
+### 3. Install pipenv
 
 ```
 pip install pipenv
 ```
 
-### 3. Install dependencies
+### 4. Install dependencies
 
 ```
 pipenv install
 ```
 
-### 4. Activate the shell
+### 5. Activate the shell
 
 ```
 pipenv shell
