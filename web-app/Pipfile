@@ -23,10 +23,8 @@ bson = "==0.5.10"
 requests = "*"
 ffmpeg-python = "*"
 
-
 [dev-packages]
 
-[dev-packages]
 
 [requires]
 python_version = "3.12"
