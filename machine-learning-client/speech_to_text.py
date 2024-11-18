@@ -15,7 +15,6 @@ app = Flask(__name__)
 
 def get_google_cloud_credentials():
     """Create a credential.
-
     Keyword arguments:
     argument -- None
     Return: credentials
@@ -35,7 +34,6 @@ def get_google_cloud_credentials():
 
 def transcribe_file(audio_file: str, credentials) -> speech.RecognizeResponse:
     """Transcribe the audio to the text.
-
     Keyword arguments:
     argument -- adress of the audio file, credential.
     Return: Transcription of the audio file.
@@ -71,7 +69,6 @@ def transcribe_file(audio_file: str, credentials) -> speech.RecognizeResponse:
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     """Communicate between web app and ml client.
-
     Keyword arguments:
     argument -- None
     Return: Transcription of the audio file.
