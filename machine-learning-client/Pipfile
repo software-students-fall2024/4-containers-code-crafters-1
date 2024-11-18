@@ -4,6 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+pylint = "*"
 python-dotenv = "*"
 google-cloud-speech = "*"
 google-auth = "*"
@@ -11,7 +12,6 @@ flask = "*"
 pytest = "*"
 
 [dev-packages]
-pylint = "*"
 
 [requires]
-python_version = "3.10"
+python_version = "3.12"
