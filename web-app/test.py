@@ -1,7 +1,10 @@
 """Test code for web-app"""
 
+# pylint: disable=C0302
 from datetime import datetime
 from unittest.mock import patch, MagicMock
+import subprocess
+import json
 import pytest
 from bson import ObjectId
 from app import (
@@ -18,6 +21,7 @@ from app import (
     get_matching_exercises_from_history,
     add_search_history,
     get_search_history,
+    parse_voice_command,
 )
 
 # @pytest.fixture
@@ -30,6 +34,7 @@ from app import (
 def client():
     """client fixture"""
     app.config["LOGIN_DISABLED"] = True
+    app.config["UPLOAD_FOLDER"] = "/tmp"
     return app.test_client()
 
 
@@ -231,48 +236,101 @@ def test_delete_exercise_id_failure(mock_delete_todo, client):
     assert b"Failed to delete" in response.data
     mock_delete_todo.assert_called_once_with(456)
 
-'''
+
 ### Test search_exercise function ###
 @patch("app.exercises_collection")
-def test_search_exercise(mock_exercises_collection):
-    """Test search exercise"""
-    mock_exercises = [
+@patch("app.normalize_text")
+def test_search_exercise(mock_normalize_text, mock_exercises_collection):
+    """Test search exercise."""
+    mock_normalize_text.return_value = "up"
+    mock_exercises_collection.find.return_value = [
         {"workout_name": "Push Up"},
         {"workout_name": "Pull Up"},
         {"workout_name": "Sit Up"},
     ]
-    mock_exercises_collection.find.return_value = mock_exercises
 
-    query = "up"
+    query = "Up"
     result = search_exercise(query)
 
-    assert result == mock_exercises
+    assert result == [
+        {"workout_name": "Push Up"},
+        {"workout_name": "Pull Up"},
+        {"workout_name": "Sit Up"},
+    ]
+
+    mock_normalize_text.assert_called_once_with(query)
+    # pylint: disable=R0801
     mock_exercises_collection.find.assert_called_once_with(
-        {"workout_name": {"$regex": query, "$options": "i"}}
+        {
+            "$expr": {
+                "$regexMatch": {
+                    "input": {
+                        "$replaceAll": {
+                            "input": {
+                                "$replaceAll": {
+                                    "input": "$workout_name",
+                                    "find": "-",
+                                    "replacement": "",
+                                }
+                            },
+                            "find": " ",
+                            "replacement": "",
+                        }
+                    },
+                    "regex": "up",
+                    "options": "i",
+                }
+            }
+        }
     )
 
 
 ### Test search_exercise_rigid function ###
 @patch("app.exercises_collection")
-def test_search_exercise_rigid(mock_exercises_collection):
-    """Test search exercise rigid"""
+@patch("app.normalize_text")
+def test_search_exercise_rigid(mock_normalize_text, mock_exercises_collection):
+    """Test search exercise rigid."""
+    mock_normalize_text.return_value = "pushup"
     mock_exercises_collection.find.return_value = [
         {"workout_name": "Push Up"},
-        {"workout_name": "push up"},
-        {"workout_name": "PUSH UP"},
+        {"workout_name": "PUSH-UP"},
+        {"workout_name": "pushup"},
     ]
 
     result = search_exercise_rigid("Push Up")
     assert result == [
         {"workout_name": "Push Up"},
-        {"workout_name": "push up"},
-        {"workout_name": "PUSH UP"},
+        {"workout_name": "PUSH-UP"},
+        {"workout_name": "pushup"},
     ]
 
+    mock_normalize_text.assert_called_once_with("Push Up")
+    # pylint: disable=R0801
     mock_exercises_collection.find.assert_called_once_with(
-        {"workout_name": {"$regex": "^Push Up$", "$options": "i"}}
+        {
+            "$expr": {
+                "$eq": [
+                    {
+                        "$toLower": {
+                            "$replaceAll": {
+                                "input": {
+                                    "$replaceAll": {
+                                        "input": "$workout_name",
+                                        "find": "-",
+                                        "replacement": "",
+                                    }
+                                },
+                                "find": " ",
+                                "replacement": "",
+                            }
+                        }
+                    },
+                    "pushup",
+                ]
+            }
+        }
     )
-'''
+
 
 ### Test get_exercise function ###
 @patch("app.exercises_collection")
@@ -939,6 +997,178 @@ def test_instructions_route(mock_get_exercise, client):
         b"Make sure to keep your back straight while performing this exercise."
         in response.data
     )
+
+
+### Test upload_audio function ###
+@patch("app.call_speech_to_text_service")
+def test_upload_audio_conversion_error(mock_transcribe, client):
+    # pylint: disable=redefined-outer-name
+    """Test audio upload with conversion error."""
+    mock_transcribe.return_value = "Mocked transcription"
+    dummy_audio_path = "/tmp/test_audio.mp3"
+    with open(dummy_audio_path, "wb") as f:
+        f.write(b"dummy audio data")
+
+    with open(dummy_audio_path, "rb") as audio_file:
+        data = {"audio": (audio_file, "test_audio.mp3")}
+        response = client.post(
+            "/upload-audio", data=data, content_type="multipart/form-data"
+        )
+
+    assert response.status_code == 500
+
+
+def test_upload_audio_no_file(client):
+    # pylint: disable=redefined-outer-name
+    """Test audio upload with no file."""
+    response = client.post("/upload-audio", data={}, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert response.json["error"] == "No audio file uploaded"
+
+
+@patch("subprocess.run")
+def test_upload_audio_success(mock_subprocess, client):
+    # pylint: disable=redefined-outer-name
+    """Test successful audio upload with mocked transcription."""
+    mock_subprocess.run.side_effect = subprocess.CalledProcessError(1, "ffmpeg")
+    test_audio_path = "/tmp/test_audio.mp3"
+    with open(test_audio_path, "wb") as f:
+        f.write(b"dummy audio data")
+
+    with open(test_audio_path, "rb") as audio_file:
+        data = {"audio": (audio_file, "test_audio.mp3")}
+        response = client.post(
+            "/upload-audio", data=data, content_type="multipart/form-data"
+        )
+
+    assert response.status_code == 200
+
+
+def test_upload_audio_transcription_error(client):
+    # pylint: disable=redefined-outer-name
+    """Test when transcription fails."""
+    dummy_audio_path = "/tmp/test_audio.mp3"
+    with open(dummy_audio_path, "wb") as f:
+        f.write(b"dummy audio data")
+
+    with open(dummy_audio_path, "rb") as audio_file:
+        data = {"audio": (audio_file, "test_audio.mp3")}
+        response = client.post(
+            "/upload-audio", data=data, content_type="multipart/form-data"
+        )
+
+    assert response.status_code == 500, "Expected server error for failed transcription"
+
+
+### Test parse_voice_command function ###
+def test_parse_voice_command():
+    """Test the parse_voice_command function."""
+    transcription = "Use 25 kilograms for the workout."
+    result = parse_voice_command(transcription)
+    assert result == {"time": None, "groups": None, "weight": 25}
+    transcription = "Let's just chat today."
+    result = parse_voice_command(transcription)
+    assert result == {"time": None, "groups": None, "weight": None}
+    transcription = "Set 20 kg for 40 minutes and 2 groups."
+    result = parse_voice_command(transcription)
+    assert result == {"time": 40, "groups": 2, "weight": 20}
+    transcription = "Workout with 50 kg for 10 minutes and 3 groups."
+    result = parse_voice_command(transcription)
+    assert result == {"time": 10, "groups": 3, "weight": 50}
+
+
+### Test upload_transcription function ###
+@patch("app.insert_transcription_entry")
+@patch("app.current_user")
+def test_upload_transcription_success(
+    mock_current_user, mock_insert_transcription_entry, client
+):
+    """Test successful transcription upload."""
+    # pylint: disable=redefined-outer-name
+    mock_current_user.is_authenticated = True
+    mock_current_user.id = "507f1f77bcf86cd799439011"
+    mock_insert_transcription_entry.return_value = "507f1f77bcf86cd799439012"
+
+    load = {"content": "This is a transcription test."}
+    response = client.post(
+        "/upload-transcription",
+        data=json.dumps(load),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    response_data = response.get_json()
+    assert response_data == {
+        "message": "Transcription saved successfully!",
+        "id": "507f1f77bcf86cd799439012",
+    }
+    mock_insert_transcription_entry.assert_called_once_with(
+        "507f1f77bcf86cd799439011", "This is a transcription test."
+    )
+
+
+def test_upload_transcription_invalid_content_type(client):
+    """Test invalid content type."""
+    # pylint: disable=redefined-outer-name
+    response = client.post(
+        "/upload-transcription",
+        data="This is not JSON",
+        content_type="text/plain",
+    )
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "Invalid content type. JSON expected"}
+
+
+def test_upload_transcription_missing_content(client):
+    """Test missing transcription content."""
+    # pylint: disable=redefined-outer-name
+    load = {}
+    response = client.post(
+        "/upload-transcription",
+        data=json.dumps(load),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "Content is required"}
+
+
+@patch("app.current_user")
+def test_upload_transcription_unauthenticated(mock_current_user, client):
+    """Test unauthenticated user attempting to save transcription."""
+    # pylint: disable=redefined-outer-name
+    mock_current_user.is_authenticated = False
+    load = {"content": "This is a transcription test."}
+    response = client.post(
+        "/upload-transcription",
+        data=json.dumps(load),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 401
+    assert response.get_json() == {
+        "error": "User must be logged in to save transcription"
+    }
+
+
+@patch("app.insert_transcription_entry")
+@patch("app.current_user")
+def test_upload_transcription_save_failure(
+    mock_current_user, mock_transcription_entry, client
+):
+    """Test transcription save fail."""
+    # pylint: disable=redefined-outer-name
+    mock_current_user.is_authenticated = True
+    mock_current_user.id = "507f1f77bcf86cd799439011"
+    mock_transcription_entry.return_value = None
+    load = {"content": "This is a transcription test."}
+    response = client.post(
+        "/upload-transcription",
+        data=json.dumps(load),
+        content_type="application/json",
+    )
+    assert response.status_code == 500
+    assert response.get_json() == {"error": "Failed to save transcription"}
 
 
 if __name__ == "__main__":
