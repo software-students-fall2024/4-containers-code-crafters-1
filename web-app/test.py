@@ -1,4 +1,5 @@
 """Test code for web-app"""
+
 # pylint: disable=C0302
 from datetime import datetime
 from unittest.mock import patch, MagicMock
@@ -20,7 +21,7 @@ from app import (
     get_matching_exercises_from_history,
     add_search_history,
     get_search_history,
-    parse_voice_command
+    parse_voice_command,
 )
 
 # @pytest.fixture
@@ -276,7 +277,7 @@ def test_search_exercise(mock_normalize_text, mock_exercises_collection):
                             "replacement": "",
                         }
                     },
-                    "regex": "up", 
+                    "regex": "up",
                     "options": "i",
                 }
             }
@@ -1042,6 +1043,7 @@ def test_upload_audio_success(mock_subprocess, client):
 
     assert response.status_code == 200
 
+
 def test_upload_audio_transcription_error(client):
     # pylint: disable=redefined-outer-name
     """Test when transcription fails."""
@@ -1056,6 +1058,7 @@ def test_upload_audio_transcription_error(client):
         )
 
     assert response.status_code == 500, "Expected server error for failed transcription"
+
 
 ### Test parse_voice_command function ###
 def test_parse_voice_command():
@@ -1073,10 +1076,13 @@ def test_parse_voice_command():
     result = parse_voice_command(transcription)
     assert result == {"time": 10, "groups": 3, "weight": 50}
 
+
 ### Test upload_transcription function ###
 @patch("app.insert_transcription_entry")
 @patch("app.current_user")
-def test_upload_transcription_success(mock_current_user, mock_insert_transcription_entry, client):
+def test_upload_transcription_success(
+    mock_current_user, mock_insert_transcription_entry, client
+):
     """Test successful transcription upload."""
     # pylint: disable=redefined-outer-name
     mock_current_user.is_authenticated = True
@@ -1100,6 +1106,7 @@ def test_upload_transcription_success(mock_current_user, mock_insert_transcripti
         "507f1f77bcf86cd799439011", "This is a transcription test."
     )
 
+
 def test_upload_transcription_invalid_content_type(client):
     """Test invalid content type."""
     # pylint: disable=redefined-outer-name
@@ -1110,6 +1117,7 @@ def test_upload_transcription_invalid_content_type(client):
     )
     assert response.status_code == 400
     assert response.get_json() == {"error": "Invalid content type. JSON expected"}
+
 
 def test_upload_transcription_missing_content(client):
     """Test missing transcription content."""
@@ -1123,6 +1131,7 @@ def test_upload_transcription_missing_content(client):
 
     assert response.status_code == 400
     assert response.get_json() == {"error": "Content is required"}
+
 
 @patch("app.current_user")
 def test_upload_transcription_unauthenticated(mock_current_user, client):
@@ -1141,9 +1150,12 @@ def test_upload_transcription_unauthenticated(mock_current_user, client):
         "error": "User must be logged in to save transcription"
     }
 
+
 @patch("app.insert_transcription_entry")
 @patch("app.current_user")
-def test_upload_transcription_save_failure(mock_current_user, mock_transcription_entry, client):
+def test_upload_transcription_save_failure(
+    mock_current_user, mock_transcription_entry, client
+):
     """Test transcription save fail."""
     # pylint: disable=redefined-outer-name
     mock_current_user.is_authenticated = True
@@ -1157,6 +1169,7 @@ def test_upload_transcription_save_failure(mock_current_user, mock_transcription
     )
     assert response.status_code == 500
     assert response.get_json() == {"error": "Failed to save transcription"}
+
 
 if __name__ == "__main__":
     pytest.main()
