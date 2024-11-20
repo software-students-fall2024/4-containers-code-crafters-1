@@ -22,12 +22,8 @@ from app import (
     add_search_history,
     get_search_history,
     parse_voice_command,
+    insert_transcription_entry,
 )
-
-# @pytest.fixture
-# def client():
-#     with app.test_client() as client:
-#         yield client
 
 
 @pytest.fixture
@@ -92,6 +88,30 @@ def test_edit_route(mock_get_exercise_in_todo, mock_edit_exercise, client):
         assert response.status_code == 400
         assert b"Failed to edit" in response.data
         mock_edit_exercise.assert_called_once_with("123", "30", "70", "15")
+
+
+@patch("app.edit_transcription_collection")
+def test_insert_transcription_entry(mock_edit_transcription_collection):
+    """Test insert_transcription_entry function"""
+    mock_result = MagicMock()
+    mock_result.inserted_id = "mock_id"
+    mock_edit_transcription_collection.insert_one.return_value = mock_result
+
+    user_id = "test_user"
+    content = "Test transcription content"
+    inserted_id = insert_transcription_entry(user_id, content)
+
+    assert inserted_id == "mock_id"
+
+    mock_edit_transcription_collection.insert_one.assert_called_once()
+    call_args = mock_edit_transcription_collection.insert_one.call_args[0][0]
+    assert call_args["user_id"] == user_id
+    assert call_args["content"] == content
+    assert isinstance(call_args["time"], datetime)
+
+    mock_edit_transcription_collection.insert_one.return_value.inserted_id = None
+    failed_inserted_id = insert_transcription_entry(user_id, content)
+    assert failed_inserted_id is None
 
 
 ### Test search function ###
