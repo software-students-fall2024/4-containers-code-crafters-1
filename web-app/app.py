@@ -273,6 +273,7 @@ def add_search_history(content):
         "time": datetime.utcnow(),
     }
     search_history_collection.insert_one(search_entry)
+
 def add_edit_transcription(content):
     """
     Logs a query made by the user into the edit_transcription database.
@@ -719,7 +720,6 @@ def process_audio():
         "groups": groups,
         "weight": weight
     }), 200
-
 
 
 if __name__ == "__main__":
