@@ -3,6 +3,7 @@
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 import subprocess
+import json
 import pytest
 from bson import ObjectId
 from app import (
@@ -1057,22 +1058,103 @@ def test_upload_audio_transcription_error(client):
 ### Test parse_voice_command function ###
 def test_parse_voice_command():
     """Test the parse_voice_command function."""
-    
     transcription = "Use 25 kilograms for the workout."
     result = parse_voice_command(transcription)
     assert result == {"time": None, "groups": None, "weight": 25}
-    
     transcription = "Let's just chat today."
     result = parse_voice_command(transcription)
     assert result == {"time": None, "groups": None, "weight": None}
-    
     transcription = "Set 20 kg for 40 minutes and 2 groups."
     result = parse_voice_command(transcription)
     assert result == {"time": 40, "groups": 2, "weight": 20}
-    
     transcription = "Workout with 50 kg for 10 minutes and 3 groups."
     result = parse_voice_command(transcription)
     assert result == {"time": 10, "groups": 3, "weight": 50}
+
+### Test upload_transcription function ###
+@patch("app.insert_transcription_entry")
+@patch("app.current_user")
+def test_upload_transcription_success(mock_current_user, mock_insert_transcription_entry, client):
+    """Test successful transcription upload."""
+    # pylint: disable=redefined-outer-name
+    mock_current_user.is_authenticated = True
+    mock_current_user.id = "507f1f77bcf86cd799439011"
+    mock_insert_transcription_entry.return_value = "507f1f77bcf86cd799439012"
+
+    load = {"content": "This is a transcription test."}
+    response = client.post(
+        "/upload-transcription",
+        data=json.dumps(load),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    response_data = response.get_json()
+    assert response_data == {
+        "message": "Transcription saved successfully!",
+        "id": "507f1f77bcf86cd799439012",
+    }
+    mock_insert_transcription_entry.assert_called_once_with(
+        "507f1f77bcf86cd799439011", "This is a transcription test."
+    )
+
+def test_upload_transcription_invalid_content_type(client):
+    """Test invalid content type."""
+    # pylint: disable=redefined-outer-name
+    response = client.post(
+        "/upload-transcription",
+        data="This is not JSON",
+        content_type="text/plain",
+    )
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "Invalid content type. JSON expected"}
+
+def test_upload_transcription_missing_content(client):
+    """Test missing transcription content."""
+    # pylint: disable=redefined-outer-name
+    load = {}
+    response = client.post(
+        "/upload-transcription",
+        data=json.dumps(load),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "Content is required"}
+
+@patch("app.current_user")
+def test_upload_transcription_unauthenticated(mock_current_user, client):
+    """Test unauthenticated user attempting to save transcription."""
+    # pylint: disable=redefined-outer-name
+    mock_current_user.is_authenticated = False
+    load = {"content": "This is a transcription test."}
+    response = client.post(
+        "/upload-transcription",
+        data=json.dumps(load),
+        content_type="application/json",
+    )
+
+    assert response.status_code == 401
+    assert response.get_json() == {
+        "error": "User must be logged in to save transcription"
+    }
+
+@patch("app.insert_transcription_entry")
+@patch("app.current_user")
+def test_upload_transcription_save_failure(mock_current_user, mock_transcription_entry, client):
+    """Test transcription save fail."""
+    # pylint: disable=redefined-outer-name
+    mock_current_user.is_authenticated = True
+    mock_current_user.id = "507f1f77bcf86cd799439011"
+    mock_transcription_entry.return_value = None
+    load = {"content": "This is a transcription test."}
+    response = client.post(
+        "/upload-transcription",
+        data=json.dumps(load),
+        content_type="application/json",
+    )
+    assert response.status_code == 500
+    assert response.get_json() == {"error": "Failed to save transcription"}
 
 if __name__ == "__main__":
     pytest.main()
