@@ -304,6 +304,7 @@ def test_search_exercise_rigid(mock_normalize_text, mock_exercises_collection):
     ]
 
     mock_normalize_text.assert_called_once_with("Push Up")
+    # pylint: disable=R0801
     mock_exercises_collection.find.assert_called_once_with(
         {
             "$expr": {
