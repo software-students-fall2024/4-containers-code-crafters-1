@@ -1,6 +1,7 @@
 """
 This module provides functions for speech-to-text transcription using Google Cloud Speech API.
 """
+
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
 import os
