@@ -11,7 +11,7 @@ from datetime import datetime
 from flask import Flask, request, redirect, url_for, render_template, jsonify, session
 from dotenv import load_dotenv
 from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
+from pymongo.errors import ConnectionFailure, PyMongoError
 from bson import ObjectId
 import certifi
 from flask_login import (
@@ -24,6 +24,7 @@ from flask_login import (
 )
 
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.exceptions import BadRequest
 import requests
 
 load_dotenv()
@@ -273,17 +274,20 @@ def add_search_history(content):
         "time": datetime.utcnow(),
     }
     search_history_collection.insert_one(search_entry)
-def add_edit_transcription(content):
+
+
+def insert_transcription_entry(user_id, content):
     """
-    Logs a query made by the user into the edit_transcription database.
-    Associates the edit transcription with the current user and records the timestamp.
+    Inserts a new transcription record into the edit_transcription_collection.
     """
     edit_transcription_entry = {
-        "user_id": current_user.id,
+        "user_id": user_id,
         "content": content,
         "time": datetime.utcnow(),
     }
-    edit_transcription_collection.insert_one(edit_transcription_entry)
+    result = edit_transcription_collection.insert_one(edit_transcription_entry)
+    return result.inserted_id if result.inserted_id else None
+
 
 def get_search_history():
     """
@@ -631,28 +635,24 @@ def parse_voice_command(transcription):
     Returns a dictionary with these extracted values.
     """
 
-    time_match = re.search(r'\b(\d+)\s*minutes?\b', transcription, re.IGNORECASE)
+    time_match = re.search(r"\b(\d+)\s*minutes?\b", transcription, re.IGNORECASE)
     time_params = int(time_match.group(1)) if time_match else None
 
-    
-    group_match = re.search(r'\b(\d+)\s*groups?\b', transcription, re.IGNORECASE)
+    group_match = re.search(r"\b(\d+)\s*groups?\b", transcription, re.IGNORECASE)
     groups = int(group_match.group(1)) if group_match else None
 
-
-    weight_match = re.search(r'\b(\d+)\s*(kg|kgs|kilogram|kilograms)?\b', transcription, re.IGNORECASE)
+    weight_match = re.search(
+        r"\b(\d+)\s*(kg|kgs|kilogram|kilograms)?\b", transcription, re.IGNORECASE
+    )
     weight = int(weight_match.group(1)) if weight_match else None
 
-    return {
-        "time": time_params,
-        "groups": groups,
-        "weight": weight
-    }
-
+    return {"time": time_params, "groups": groups, "weight": weight}
 
 
 @app.route("/process-audio", methods=["POST"])
 @login_required
 def process_audio():
+    # pylint: disable=too-many-return-statements
     """
     Processes uploaded audio to extract time, groups, and weight.
     Updates the specific exercise in the To-Do list with the extracted parameters.
@@ -660,12 +660,10 @@ def process_audio():
     if "audio" not in request.files:
         return jsonify({"error": "No audio file uploaded"}), 400
 
-    # Save uploaded audio file
     audio = request.files["audio"]
     original_file_path = os.path.join(app.config["UPLOAD_FOLDER"], audio.filename)
     audio.save(original_file_path)
 
-    # Convert audio to WAV format
     wav_file_path = os.path.splitext(original_file_path)[0] + "_converted.wav"
     try:
         subprocess.run(
@@ -686,40 +684,86 @@ def process_audio():
         print(f"Error converting audio to WAV: {e}")
         return jsonify({"error": "Failed to convert audio file"}), 500
 
-    # Call the speech-to-text service
     transcription = call_speech_to_text_service(wav_file_path)
     if not transcription:
         return jsonify({"error": "Failed to transcribe audio"}), 500
 
-    add_edit_transcription(transcription)
-    # Parse the transcription to extract time, groups, and weight
     parsed_data = parse_voice_command(transcription)
     if not parsed_data:
-        return jsonify({"error": "Failed to parse transcription", "transcription": transcription}), 400
+        return (
+            jsonify(
+                {
+                    "error": "Failed to parse transcription",
+                    "transcription": transcription,
+                }
+            ),
+            400,
+        )
 
-    # Extract relevant parameters
-    working_time = f"{parsed_data['time']}:00" if parsed_data['time'] else None
+    working_time = f"{parsed_data['time']}:00" if parsed_data["time"] else None
     groups = parsed_data.get("groups")
     weight = parsed_data.get("weight")
 
-    # Retrieve exercise_todo_id from the request
     exercise_todo_id = request.args.get("exercise_todo_id")
     if not exercise_todo_id:
         return jsonify({"error": "Exercise To-Do ID is required"}), 400
 
-    # Update the exercise in the To-Do list
     success = edit_exercise(exercise_todo_id, working_time, weight, groups)
     if not success:
         return jsonify({"error": "Failed to update exercise"}), 500
 
-    # Return success response
-    return jsonify({
-        "message": "Exercise updated successfully",
-        "time": parsed_data['time'],
-        "groups": groups,
-        "weight": weight
-    }), 200
+    return (
+        jsonify(
+            {
+                "message": "Exercise updated successfully",
+                "time": parsed_data["time"],
+                "groups": groups,
+                "weight": weight,
+            }
+        ),
+        200,
+    )
 
+
+@app.route("/upload-transcription", methods=["POST"])
+def upload_transcription():
+    # pylint: disable=too-many-return-statements
+    """
+    Processes uploaded transcription data and saves it to MongoDB.
+    """
+    try:
+        if not request.is_json:
+            return jsonify({"error": "Invalid content type. JSON expected"}), 400
+
+        data = request.get_json()
+        transcription_content = data.get("content")
+
+        if not transcription_content:
+            return jsonify({"error": "Content is required"}), 400
+
+        if not current_user.is_authenticated:
+            return (
+                jsonify({"error": "User must be logged in to save transcription"}),
+                401,
+            )
+
+        inserted_id = insert_transcription_entry(current_user.id, transcription_content)
+
+        if inserted_id:
+            return (
+                jsonify(
+                    {
+                        "message": "Transcription saved successfully!",
+                        "id": str(inserted_id),
+                    }
+                ),
+                200,
+            )
+        return jsonify({"error": "Failed to save transcription"}), 500
+    except BadRequest as e:
+        return jsonify({"error": str(e)}), 400
+    except PyMongoError as e:
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
 
 
 if __name__ == "__main__":
