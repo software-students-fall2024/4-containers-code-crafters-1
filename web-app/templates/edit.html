@@ -88,6 +88,20 @@
                                 
                                 const transcription = result.transcription.toLowerCase();
 
+                                try {
+                                    const saveResponse = await fetch('/upload-transcription', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({ content: transcription }),
+                                    });
+                                    const saveResult = await saveResponse.json();
+                                    console.log('Save result:', saveResult);
+                                } catch (saveError) {
+                                    console.error('Error saving transcription:', saveError);
+                                }
+
                                 const timeMatch = transcription.match(/(\d+)\s*minutes?/);
                                 const groupMatch = transcription.match(/(\d+)\s*groups?/);
                                 const weightMatch = transcription.match(/(\d+)\s*(kilograms|kg|pounds|lbs)/);
@@ -109,7 +123,6 @@
                             alert('Failed to upload the audio for transcription.');
                         }
 
-                        // Reset audioChunks for next recording
                         audioChunks = [];
                     };
 
