@@ -52,6 +52,7 @@ todo_collection = db["todo"]
 exercises_collection = db["exercises"]
 users_collection = db["users"]
 search_history_collection = db["search_history"]
+edit_transcription_collection = db["edit_transcription"]
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -272,7 +273,17 @@ def add_search_history(content):
         "time": datetime.utcnow(),
     }
     search_history_collection.insert_one(search_entry)
-
+def add_edit_transcription(content):
+    """
+    Logs a query made by the user into the edit_transcription database.
+    Associates the edit transcription with the current user and records the timestamp.
+    """
+    edit_transcription_entry = {
+        "user_id": current_user.id,
+        "content": content,
+        "time": datetime.utcnow(),
+    }
+    edit_transcription_collection.insert_one(edit_transcription_entry)
 
 def get_search_history():
     """
@@ -616,52 +627,45 @@ def call_speech_to_text_service(file_path):
 
 def parse_voice_command(transcription):
     """
-    Parses the transcription to extract the exercise name, time duration,
-    number of groups, and weight. Returns a structured dictionary of the extracted data.
+    Parses the transcription to extract time, group count, and weight parameters.
+    Returns a dictionary with these extracted values.
     """
-    exercise_match = re.search(
-        r'exercise\s+["\'](.+?)["\']', transcription, re.IGNORECASE
-    )
-    exercise_name = exercise_match.group(1) if exercise_match else None
 
-    time_match = re.search(
-        r"set the time at\s+(\d+)\s*minutes?", transcription, re.IGNORECASE
-    )
-    time_params = {"minutes": int(time_match.group(1))} if time_match else None
+    time_match = re.search(r'\b(\d+)\s*minutes?\b', transcription, re.IGNORECASE)
+    time_params = int(time_match.group(1)) if time_match else None
 
-    groups_match = re.search(r"group of\s+(\d+)", transcription, re.IGNORECASE)
-    groups = int(groups_match.group(1)) if groups_match else None
+    
+    group_match = re.search(r'\b(\d+)\s*groups?\b', transcription, re.IGNORECASE)
+    groups = int(group_match.group(1)) if group_match else None
 
-    weight_match = re.search(r"weight of\s+(\d+)", transcription, re.IGNORECASE)
+
+    weight_match = re.search(r'\b(\d+)\s*(kg|kgs|kilogram|kilograms)?\b', transcription, re.IGNORECASE)
     weight = int(weight_match.group(1)) if weight_match else None
 
-    if not exercise_name:
-        print("Failed to parse exercise name from transcription.")
-        return None
-
     return {
-        "exercise": exercise_name,
         "time": time_params,
         "groups": groups,
-        "weight": weight,
+        "weight": weight
     }
+
 
 
 @app.route("/process-audio", methods=["POST"])
 @login_required
 def process_audio():
-    # pylint: disable=too-many-return-statements
     """
-    Processes uploaded audio. Converts it to WAV format, transcribes it to text,
-    extracts relevant exercise details, and updates the corresponding exercise in the To-Do list.
+    Processes uploaded audio to extract time, groups, and weight.
+    Updates the specific exercise in the To-Do list with the extracted parameters.
     """
     if "audio" not in request.files:
         return jsonify({"error": "No audio file uploaded"}), 400
 
+    # Save uploaded audio file
     audio = request.files["audio"]
     original_file_path = os.path.join(app.config["UPLOAD_FOLDER"], audio.filename)
     audio.save(original_file_path)
 
+    # Convert audio to WAV format
     wav_file_path = os.path.splitext(original_file_path)[0] + "_converted.wav"
     try:
         subprocess.run(
@@ -682,56 +686,40 @@ def process_audio():
         print(f"Error converting audio to WAV: {e}")
         return jsonify({"error": "Failed to convert audio file"}), 500
 
+    # Call the speech-to-text service
     transcription = call_speech_to_text_service(wav_file_path)
     if not transcription:
         return jsonify({"error": "Failed to transcribe audio"}), 500
 
+    add_edit_transcription(transcription)
+    # Parse the transcription to extract time, groups, and weight
     parsed_data = parse_voice_command(transcription)
     if not parsed_data:
-        return jsonify({"error": "Failed to parse transcription"}), 400
+        return jsonify({"error": "Failed to parse transcription", "transcription": transcription}), 400
 
-    exercise_name = parsed_data.get("exercise")
-    time_params = parsed_data.get("time")
+    # Extract relevant parameters
+    working_time = f"{parsed_data['time']}:00" if parsed_data['time'] else None
     groups = parsed_data.get("groups")
     weight = parsed_data.get("weight")
 
-    todo_list = get_todo()
-    matching_exercise = next(
-        (
-            item
-            for item in todo_list
-            if normalize_text(item["workout_name"]) == normalize_text(exercise_name)
-        ),
-        None,
-    )
+    # Retrieve exercise_todo_id from the request
+    exercise_todo_id = request.args.get("exercise_todo_id")
+    if not exercise_todo_id:
+        return jsonify({"error": "Exercise To-Do ID is required"}), 400
 
-    if not matching_exercise:
-        return (
-            jsonify({"error": f"Exercise '{exercise_name}' not found in To-Do list"}),
-            404,
-        )
-
-    exercise_todo_id = matching_exercise["exercise_todo_id"]
-    working_time = f"{time_params['minutes']}:00" if time_params else None
-    edit_success = edit_exercise(
-        exercise_todo_id, working_time=working_time, weight=weight, reps=groups
-    )
-
-    if not edit_success:
+    # Update the exercise in the To-Do list
+    success = edit_exercise(exercise_todo_id, working_time, weight, groups)
+    if not success:
         return jsonify({"error": "Failed to update exercise"}), 500
 
-    return (
-        jsonify(
-            {
-                "message": "Exercise updated successfully",
-                "exercise": exercise_name,
-                "time": time_params,
-                "groups": groups,
-                "weight": weight,
-            }
-        ),
-        200,
-    )
+    # Return success response
+    return jsonify({
+        "message": "Exercise updated successfully",
+        "time": parsed_data['time'],
+        "groups": groups,
+        "weight": weight
+    }), 200
+
 
 
 if __name__ == "__main__":
